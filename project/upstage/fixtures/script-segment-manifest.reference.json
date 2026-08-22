@@ -1,0 +1,86 @@
+{
+  "schema_version": "standby.source_segment_manifest.v1",
+  "artifact_status": "SOURCE_MEASURED",
+  "document_id": "script-final-reference",
+  "filename": "script-final.txt",
+  "document_role": "SCRIPT",
+  "origin": "REAL_REFERENCE",
+  "sha256": "fce64dced545ced45a0230cddabfb861239d0a0b83c3910720bf3179afa950a5",
+  "logical_line_count": 2173,
+  "line_terminator_observation": "CRLF_WITH_UNTERMINATED_FINAL_LINE",
+  "segments": [
+    {
+      "source_segment_id": "seg-script-001-lines-1-688",
+      "start_line": 1,
+      "end_line": 688,
+      "segment_kind_candidate": "TIMELINE_AND_SCRIPT",
+      "label_raw": "별마루 대사량 감소ver 7/31",
+      "label_start_line": 1,
+      "label_end_line": 1,
+      "authority_status": "UNREVIEWED"
+    },
+    {
+      "source_segment_id": "seg-script-002-lines-689-839",
+      "start_line": 689,
+      "end_line": 839,
+      "segment_kind_candidate": "FINAL_STORYBOARD",
+      "label_raw": "📌최종✨별 캐릭터 2명 추가 스토리보드",
+      "label_start_line": 689,
+      "label_end_line": 689,
+      "authority_status": "UNREVIEWED"
+    },
+    {
+      "source_segment_id": "seg-script-003-lines-840-1331",
+      "start_line": 840,
+      "end_line": 1331,
+      "segment_kind_candidate": "FIRST_DRAFT_SCRIPT",
+      "label_raw": "1차",
+      "label_start_line": 845,
+      "label_end_line": 845,
+      "authority_status": "UNREVIEWED"
+    },
+    {
+      "source_segment_id": "seg-script-004-lines-1332-1599",
+      "start_line": 1332,
+      "end_line": 1599,
+      "segment_kind_candidate": "AUDITION_EXCERPTS",
+      "label_raw": "배역오디션",
+      "label_start_line": 1337,
+      "label_end_line": 1337,
+      "authority_status": "UNREVIEWED"
+    },
+    {
+      "source_segment_id": "seg-script-005-lines-1600-1739",
+      "start_line": 1600,
+      "end_line": 1739,
+      "segment_kind_candidate": "STORYBOARD_WITHOUT_COMMENTS",
+      "label_raw": "스토리보드 - 댓글 X",
+      "label_start_line": 1600,
+      "label_end_line": 1600,
+      "authority_status": "UNREVIEWED"
+    },
+    {
+      "source_segment_id": "seg-script-006-lines-1740-1892",
+      "start_line": 1740,
+      "end_line": 1892,
+      "segment_kind_candidate": "TAB_7_8_SCRIPT_EXCERPT",
+      "label_raw": "탭 7",
+      "label_start_line": 1740,
+      "label_end_line": 1740,
+      "secondary_label_raw": "탭 8",
+      "secondary_label_start_line": 1743,
+      "secondary_label_end_line": 1743,
+      "authority_status": "UNREVIEWED"
+    },
+    {
+      "source_segment_id": "seg-script-007-lines-1893-2173",
+      "start_line": 1893,
+      "end_line": 2173,
+      "segment_kind_candidate": "COMMENT_FOOTNOTES_AND_PRODUCTION_NOTES",
+      "label_raw": "",
+      "label_start_line": null,
+      "label_end_line": null,
+      "authority_status": "UNREVIEWED"
+    }
+  ]
+}

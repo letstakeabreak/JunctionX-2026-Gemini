@@ -1,0 +1,2807 @@
+openapi: 3.1.0
+info:
+  title: STANDBY API
+  version: 0.2.0
+  summary: Stage-production document verification and 2D evidence API
+  description: |
+    API for the STANDBY PRD v0.5 two-screen workflow. Sources are immutable and
+    AI outputs are non-authoritative. Reviewed compiled events may be visualized
+    as EVIDENCE PREVIEW before correction; FINAL and CONSISTENT naming remain
+    locked until a new source hash passes aggregate re-verification.
+servers:
+  - url: http://localhost:3000
+    description: Local development
+tags:
+  - name: System
+  - name: Productions
+  - name: Cases
+  - name: Sources
+  - name: Extraction
+  - name: Reviews
+  - name: Verification
+  - name: Proposals
+  - name: Simulation
+  - name: Operations
+security:
+  - bearerAuth: []
+paths:
+  /healthz:
+    get:
+      tags: [System]
+      operationId: getHealth
+      security: []
+      responses:
+        '200':
+          description: Process is alive
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+  /readyz:
+    get:
+      tags: [System]
+      operationId: getReadiness
+      security: []
+      responses:
+        '200':
+          description: Service is ready or degraded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReadinessResponse'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /v1/me:
+    get:
+      tags: [System]
+      operationId: getCurrentActor
+      x-maturity: p1
+      responses:
+        '200':
+          description: Current actor
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Actor'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+  /v1/capabilities:
+    get:
+      tags: [System]
+      operationId: getCapabilities
+      responses:
+        '200':
+          description: Runtime capability gates
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Capabilities'
+  /v1/productions:
+    post:
+      tags: [Productions]
+      operationId: createProduction
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateProductionRequest'
+      responses:
+        '201':
+          description: Production created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Production'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '409':
+          $ref: '#/components/responses/Conflict'
+    get:
+      tags: [Productions]
+      operationId: listProductions
+      x-maturity: p1
+      parameters:
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: Production list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductionList'
+  /v1/productions/{production_id}:
+    parameters:
+      - $ref: '#/components/parameters/ProductionId'
+    get:
+      tags: [Productions]
+      operationId: getProduction
+      responses:
+        '200':
+          description: Production
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Production'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    patch:
+      tags: [Productions]
+      operationId: updateProduction
+      x-maturity: p1
+      parameters:
+        - $ref: '#/components/parameters/IfMatch'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateProductionRequest'
+      responses:
+        '200':
+          description: Updated production
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Production'
+        '412':
+          $ref: '#/components/responses/PreconditionFailed'
+        '428':
+          $ref: '#/components/responses/PreconditionRequired'
+  /v1/productions/{production_id}/cases:
+    parameters:
+      - $ref: '#/components/parameters/ProductionId'
+    post:
+      tags: [Cases]
+      operationId: createCase
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateCaseRequest'
+      responses:
+        '201':
+          description: Case and initial revision created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateCaseResponse'
+    get:
+      tags: [Cases]
+      operationId: listCases
+      x-maturity: p1
+      parameters:
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: Case list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CaseList'
+  /v1/cases/{case_id}:
+    parameters:
+      - $ref: '#/components/parameters/CaseId'
+    get:
+      tags: [Cases]
+      operationId: getCase
+      responses:
+        '200':
+          description: Verification case
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VerificationCase'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      tags: [Cases]
+      operationId: purgeCase
+      x-maturity: p1
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/IfMatch'
+      responses:
+        '202':
+          description: Purge operation accepted
+          headers:
+            Operation-Location: {$ref: '#/components/headers/OperationLocation'}
+            Retry-After: {$ref: '#/components/headers/RetryAfter'}
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OperationAccepted'
+        '412':
+          $ref: '#/components/responses/PreconditionFailed'
+        '428':
+          $ref: '#/components/responses/PreconditionRequired'
+  /v1/cases/{case_id}/revisions:
+    get:
+      tags: [Cases]
+      operationId: listCaseRevisions
+      parameters:
+        - $ref: '#/components/parameters/CaseId'
+      responses:
+        '200':
+          description: Parent-child revision lineage
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RevisionList'
+  /v1/cases/{case_id}/audit-events:
+    get:
+      tags: [Cases]
+      operationId: listAuditEvents
+      parameters:
+        - $ref: '#/components/parameters/CaseId'
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: Append-only audit events
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuditEventList'
+  /v1/revisions/{revision_id}:
+    get:
+      tags: [Cases]
+      operationId: getRevision
+      parameters:
+        - $ref: '#/components/parameters/RevisionId'
+      responses:
+        '200':
+          description: Immutable case revision snapshot
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CaseRevision'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /v1/revisions/{revision_id}/sources/{slot_role}:
+    put:
+      tags: [Sources]
+      operationId: uploadSourceToSlot
+      parameters:
+        - $ref: '#/components/parameters/RevisionId'
+        - $ref: '#/components/parameters/SlotRole'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/SourceUploadRequest'
+      responses:
+        '201':
+          description: Immutable source document created or deduplicated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SourceDocument'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '413':
+          $ref: '#/components/responses/PayloadTooLarge'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+  /v1/revisions/{revision_id}/source-manifest:
+    get:
+      tags: [Sources]
+      operationId: getSourceManifest
+      parameters:
+        - $ref: '#/components/parameters/RevisionId'
+      responses:
+        '200':
+          description: Current three-slot source manifest
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SourceManifest'
+  /v1/revisions/{revision_id}/source-confirmation:
+    post:
+      tags: [Sources]
+      operationId: confirmSources
+      parameters:
+        - $ref: '#/components/parameters/RevisionId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/IfMatch'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConfirmSourcesRequest'
+      responses:
+        '200':
+          description: Confirmed immutable source manifest
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SourceManifest'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '412':
+          $ref: '#/components/responses/PreconditionFailed'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '428':
+          $ref: '#/components/responses/PreconditionRequired'
+  /v1/revisions/{revision_id}/master-reuploads:
+    post:
+      tags: [Sources]
+      operationId: reuploadMasterCue
+      parameters:
+        - $ref: '#/components/parameters/RevisionId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/IfMatch'
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/MasterReuploadRequest'
+      responses:
+        '202':
+          description: Child revision and master extraction operation created
+          headers:
+            Operation-Location: {$ref: '#/components/headers/OperationLocation'}
+            Retry-After: {$ref: '#/components/headers/RetryAfter'}
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MasterReuploadAccepted'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '412':
+          $ref: '#/components/responses/PreconditionFailed'
+        '413':
+          $ref: '#/components/responses/PayloadTooLarge'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '428':
+          $ref: '#/components/responses/PreconditionRequired'
+  /v1/documents/{document_id}:
+    get:
+      tags: [Sources]
+      operationId: getSourceDocument
+      parameters:
+        - $ref: '#/components/parameters/DocumentId'
+      responses:
+        '200':
+          description: Immutable document metadata
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SourceDocument'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /v1/source-refs/{source_ref_id}:
+    get:
+      tags: [Sources]
+      operationId: getSourceReference
+      parameters:
+        - $ref: '#/components/parameters/SourceRefId'
+      responses:
+        '200':
+          description: Source reference and safe locator
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SourceReference'
+  /v1/documents/{document_id}/pages/{page_number}:
+    get:
+      tags: [Sources]
+      operationId: getDocumentPage
+      parameters:
+        - $ref: '#/components/parameters/DocumentId'
+        - $ref: '#/components/parameters/PageNumber'
+      responses:
+        '200':
+          description: Short-lived signed render URL
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PageRender'
+  /v1/revisions/{revision_id}/extraction-runs:
+    get:
+      tags: [Extraction]
+      operationId: listExtractionRuns
+      parameters:
+        - $ref: '#/components/parameters/RevisionId'
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: Extraction run history for this immutable revision
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExtractionRunList'
+    post:
+      tags: [Extraction]
+      operationId: startExtraction
+      parameters:
+        - $ref: '#/components/parameters/RevisionId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StartExtractionRequest'
+      responses:
+        '202':
+          description: Extraction operation accepted
+          headers:
+            Operation-Location: {$ref: '#/components/headers/OperationLocation'}
+            Retry-After: {$ref: '#/components/headers/RetryAfter'}
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OperationAccepted'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+  /v1/extraction-runs/{run_id}:
+    get:
+      tags: [Extraction]
+      operationId: getExtractionRun
+      parameters:
+        - $ref: '#/components/parameters/RunId'
+      responses:
+        '200':
+          description: Role-separated extraction run
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExtractionRun'
+  /v1/revisions/{revision_id}/facts:
+    get:
+      tags: [Extraction]
+      operationId: listFacts
+      parameters:
+        - $ref: '#/components/parameters/RevisionId'
+        - name: slot_role
+          in: query
+          schema:
+            $ref: '#/components/schemas/SlotRole'
+        - name: review_status
+          in: query
+          schema:
+            $ref: '#/components/schemas/ReviewStatus'
+        - name: fact_type
+          in: query
+          schema:
+            type: string
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: Fact list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FactList'
+  /v1/facts/{fact_id}:
+    get:
+      tags: [Extraction]
+      operationId: getFact
+      parameters:
+        - $ref: '#/components/parameters/FactId'
+      responses:
+        '200':
+          description: Fact with immutable raw and reviewed projection
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Fact'
+  /v1/facts/{fact_id}/reviews:
+    get:
+      tags: [Reviews]
+      operationId: listFactReviews
+      parameters:
+        - $ref: '#/components/parameters/FactId'
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: Append-only fact review history
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReviewRecordList'
+    post:
+      tags: [Reviews]
+      operationId: reviewFact
+      parameters:
+        - $ref: '#/components/parameters/FactId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/IfMatch'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FactReviewRequest'
+      responses:
+        '201':
+          description: Review record appended
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReviewRecord'
+        '412':
+          $ref: '#/components/responses/PreconditionFailed'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '428':
+          $ref: '#/components/responses/PreconditionRequired'
+  /v1/revisions/{revision_id}/fact-reviews:batch:
+    post:
+      tags: [Reviews]
+      operationId: reviewFactsBatch
+      parameters:
+        - $ref: '#/components/parameters/RevisionId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/IfMatch'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BatchFactReviewRequest'
+      responses:
+        '201':
+          description: Review records appended atomically
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReviewRecordList'
+        '412':
+          $ref: '#/components/responses/PreconditionFailed'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '428':
+          $ref: '#/components/responses/PreconditionRequired'
+  /v1/revisions/{revision_id}/event-links:
+    get:
+      tags: [Reviews]
+      operationId: listEventLinks
+      parameters:
+        - $ref: '#/components/parameters/RevisionId'
+        - name: status
+          in: query
+          schema:
+            $ref: '#/components/schemas/EventLinkStatus'
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: Event link candidates and decisions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EventLinkList'
+    post:
+      tags: [Reviews]
+      operationId: createEventLink
+      parameters:
+        - $ref: '#/components/parameters/RevisionId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/IfMatch'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateEventLinkRequest'
+      responses:
+        '201':
+          description: Human-created event-link candidate
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EventLink'
+        '412':
+          $ref: '#/components/responses/PreconditionFailed'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '428':
+          $ref: '#/components/responses/PreconditionRequired'
+  /v1/event-links/{link_id}/decisions:
+    get:
+      tags: [Reviews]
+      operationId: listEventLinkDecisions
+      parameters:
+        - $ref: '#/components/parameters/LinkId'
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: Append-only event-link review history
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReviewRecordList'
+    post:
+      tags: [Reviews]
+      operationId: decideEventLink
+      parameters:
+        - $ref: '#/components/parameters/LinkId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/IfMatch'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EventLinkDecisionRequest'
+      responses:
+        '201':
+          description: Link decision appended
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReviewRecord'
+        '412':
+          $ref: '#/components/responses/PreconditionFailed'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '428':
+          $ref: '#/components/responses/PreconditionRequired'
+  /v1/revisions/{revision_id}/stage-graph:
+    get:
+      tags: [Reviews]
+      operationId: getStageGraph
+      parameters:
+        - $ref: '#/components/parameters/RevisionId'
+      responses:
+        '200':
+          description: Named-zone graph
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StageGraph'
+  /v1/stage-graph-items/{item_id}/reviews:
+    get:
+      tags: [Reviews]
+      operationId: listStageGraphItemReviews
+      parameters:
+        - $ref: '#/components/parameters/ItemId'
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: Append-only stage item review history
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReviewRecordList'
+    post:
+      tags: [Reviews]
+      operationId: reviewStageGraphItem
+      parameters:
+        - $ref: '#/components/parameters/ItemId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/IfMatch'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StageItemReviewRequest'
+      responses:
+        '201':
+          description: Stage item review appended
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReviewRecord'
+        '412':
+          $ref: '#/components/responses/PreconditionFailed'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '428':
+          $ref: '#/components/responses/PreconditionRequired'
+  /v1/revisions/{revision_id}/authority-decisions:
+    get:
+      tags: [Reviews]
+      operationId: listAuthorityDecisions
+      parameters:
+        - $ref: '#/components/parameters/RevisionId'
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: Authority decision list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthorityDecisionList'
+    post:
+      tags: [Reviews]
+      operationId: createAuthorityDecision
+      parameters:
+        - $ref: '#/components/parameters/RevisionId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/IfMatch'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateAuthorityDecisionRequest'
+      responses:
+        '201':
+          description: Authority decision appended
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthorityDecision'
+        '412':
+          $ref: '#/components/responses/PreconditionFailed'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '428':
+          $ref: '#/components/responses/PreconditionRequired'
+  /v1/revisions/{revision_id}/review-state:
+    get:
+      tags: [Reviews]
+      operationId: getReviewState
+      parameters:
+        - $ref: '#/components/parameters/RevisionId'
+      responses:
+        '200':
+          description: Canonical version tuple and review completeness used to freeze a review snapshot
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReviewState'
+  /v1/revisions/{revision_id}/review-gates/complete:
+    post:
+      tags: [Reviews]
+      operationId: completeReviewGate
+      parameters:
+        - $ref: '#/components/parameters/RevisionId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/IfMatch'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CompleteReviewGateRequest'
+      responses:
+        '201':
+          description: Immutable review snapshot created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReviewSnapshot'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '412':
+          $ref: '#/components/responses/PreconditionFailed'
+        '428':
+          $ref: '#/components/responses/PreconditionRequired'
+  /v1/revisions/{revision_id}/verification-readiness:
+    get:
+      tags: [Verification]
+      operationId: getVerificationReadiness
+      parameters:
+        - $ref: '#/components/parameters/RevisionId'
+        - name: review_snapshot_id
+          in: query
+          required: true
+          schema: {type: string}
+        - name: rule_set_version
+          in: query
+          required: true
+          schema: {type: string}
+      responses:
+        '200':
+          description: Start eligibility and canonical input fingerprint for the selected snapshot and rule set
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VerificationReadiness'
+  /v1/revisions/{revision_id}/verification-runs:
+    get:
+      tags: [Verification]
+      operationId: listVerificationRuns
+      parameters:
+        - $ref: '#/components/parameters/RevisionId'
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: Verification run history for this immutable revision
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VerificationRunList'
+    post:
+      tags: [Verification]
+      operationId: startVerification
+      parameters:
+        - $ref: '#/components/parameters/RevisionId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StartVerificationRequest'
+      responses:
+        '202':
+          description: Compile and verification operation accepted
+          headers:
+            Operation-Location: {$ref: '#/components/headers/OperationLocation'}
+            Retry-After: {$ref: '#/components/headers/RetryAfter'}
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OperationAccepted'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+  /v1/verification-runs/{run_id}:
+    get:
+      tags: [Verification]
+      operationId: getVerificationRun
+      parameters:
+        - $ref: '#/components/parameters/RunId'
+      responses:
+        '200':
+          description: Verification run and aggregate gate summary
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VerificationRun'
+  /v1/revisions/{revision_id}/compiled-events:
+    get:
+      tags: [Verification]
+      operationId: listCompiledEvents
+      parameters:
+        - $ref: '#/components/parameters/RevisionId'
+        - name: compile_run_id
+          in: query
+          required: true
+          schema: {type: string}
+      responses:
+        '200':
+          description: Reviewed compiled event graph
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CompiledEventList'
+  /v1/revisions/{revision_id}/findings:
+    get:
+      tags: [Verification]
+      operationId: listFindings
+      parameters:
+        - $ref: '#/components/parameters/RevisionId'
+        - name: verification_run_id
+          in: query
+          required: true
+          schema: {type: string}
+        - name: verdict
+          in: query
+          schema:
+            $ref: '#/components/schemas/FindingVerdict'
+        - name: severity
+          in: query
+          schema:
+            $ref: '#/components/schemas/FindingSeverity'
+        - name: lifecycle
+          in: query
+          schema:
+            $ref: '#/components/schemas/FindingLifecycle'
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: Finding list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FindingList'
+  /v1/findings/{finding_id}:
+    get:
+      tags: [Verification]
+      operationId: getFinding
+      parameters:
+        - $ref: '#/components/parameters/FindingId'
+      responses:
+        '200':
+          description: Deterministic finding
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Finding'
+  /v1/findings/{finding_id}/evidence:
+    get:
+      tags: [Verification]
+      operationId: getFindingEvidence
+      parameters:
+        - $ref: '#/components/parameters/FindingId'
+      responses:
+        '200':
+          description: Source references used by calculation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FindingEvidence'
+  /v1/findings/{finding_id}/decisions:
+    get:
+      tags: [Verification]
+      operationId: listFindingDecisions
+      parameters:
+        - $ref: '#/components/parameters/FindingId'
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: Append-only finding classification history
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReviewDecisionList'
+    post:
+      tags: [Verification]
+      operationId: decideFinding
+      parameters:
+        - $ref: '#/components/parameters/FindingId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/IfMatch'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FindingDecisionRequest'
+      responses:
+        '201':
+          description: Finding decision appended
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReviewDecision'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '412':
+          $ref: '#/components/responses/PreconditionFailed'
+        '428':
+          $ref: '#/components/responses/PreconditionRequired'
+  /v1/findings/{finding_id}/exception-decisions:
+    get:
+      tags: [Verification]
+      operationId: listFindingExceptionDecisions
+      parameters:
+        - $ref: '#/components/parameters/FindingId'
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: Append-only exception responsibility decisions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExceptionDecisionList'
+    post:
+      tags: [Verification]
+      operationId: decideFindingException
+      parameters:
+        - $ref: '#/components/parameters/FindingId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/IfMatch'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ExceptionDecisionRequest'
+      responses:
+        '201':
+          description: Separate responsibility acceptance appended without changing the deterministic finding
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExceptionDecision'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '412':
+          $ref: '#/components/responses/PreconditionFailed'
+        '428':
+          $ref: '#/components/responses/PreconditionRequired'
+  /v1/revisions/{revision_id}/proposals:
+    get:
+      tags: [Proposals]
+      operationId: listProposals
+      parameters:
+        - $ref: '#/components/parameters/RevisionId'
+        - name: verification_run_id
+          in: query
+          required: true
+          schema: {type: string}
+        - name: status
+          in: query
+          schema:
+            $ref: '#/components/schemas/ProposalStatus'
+        - name: proposal_type
+          in: query
+          schema:
+            $ref: '#/components/schemas/ProposalType'
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: Proposal list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProposalList'
+  /v1/proposals/{proposal_id}:
+    get:
+      tags: [Proposals]
+      operationId: getProposal
+      parameters:
+        - $ref: '#/components/parameters/ProposalId'
+      responses:
+        '200':
+          description: Discriminated proposal detail
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChangeProposal'
+  /v1/proposals/{proposal_id}/decisions:
+    get:
+      tags: [Proposals]
+      operationId: listProposalDecisions
+      parameters:
+        - $ref: '#/components/parameters/ProposalId'
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: Append-only proposal decision history
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReviewDecisionList'
+    post:
+      tags: [Proposals]
+      operationId: decideProposal
+      parameters:
+        - $ref: '#/components/parameters/ProposalId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/IfMatch'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProposalDecisionRequest'
+      responses:
+        '201':
+          description: Proposal decision appended without source mutation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReviewDecision'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '412':
+          $ref: '#/components/responses/PreconditionFailed'
+        '428':
+          $ref: '#/components/responses/PreconditionRequired'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+  /v1/revisions/{revision_id}/final-gate:
+    get:
+      tags: [Simulation]
+      operationId: getFinalGate
+      parameters:
+        - $ref: '#/components/parameters/RevisionId'
+      responses:
+        '200':
+          description: Exact server-side gate evaluation used to lock or unlock Final 2D
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FinalGateEvaluation'
+  /v1/revisions/{revision_id}/simulation:
+    get:
+      tags: [Simulation]
+      operationId: getFinalSimulation
+      parameters:
+        - $ref: '#/components/parameters/RevisionId'
+      responses:
+        '200':
+          description: Immutable final 2D simulation manifest and frames
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SimulationManifest'
+        '423':
+          description: Final gate is locked
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SimulationLockedResponse'
+  /v1/operations/{operation_id}:
+    get:
+      tags: [Operations]
+      operationId: getOperation
+      parameters:
+        - $ref: '#/components/parameters/OperationId'
+      responses:
+        '200':
+          description: Pollable operation state
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Operation'
+  /v1/operations/{operation_id}/cancel:
+    post:
+      tags: [Operations]
+      operationId: cancelOperation
+      x-maturity: p1
+      parameters:
+        - $ref: '#/components/parameters/OperationId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/IfMatch'
+      responses:
+        '200':
+          description: Local orchestration cancellation requested; provider job cancellation is not implied
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Operation'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '412':
+          $ref: '#/components/responses/PreconditionFailed'
+        '428':
+          $ref: '#/components/responses/PreconditionRequired'
+  /v1/operations/{operation_id}/events:
+    get:
+      tags: [Operations]
+      operationId: streamOperationEvents
+      x-maturity: p1
+      parameters:
+        - $ref: '#/components/parameters/OperationId'
+      responses:
+        '200':
+          description: Optional server-sent event stream
+          content:
+            text/event-stream:
+              schema:
+                type: string
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  headers:
+    OperationLocation:
+      description: Pollable STANDBY operation URL.
+      schema: {type: string, format: uri-reference}
+    RetryAfter:
+      description: Suggested seconds before the next poll.
+      schema: {type: integer, minimum: 1}
+  parameters:
+    ProductionId:
+      name: production_id
+      in: path
+      required: true
+      schema: {type: string}
+    CaseId:
+      name: case_id
+      in: path
+      required: true
+      schema: {type: string}
+    RevisionId:
+      name: revision_id
+      in: path
+      required: true
+      schema: {type: string}
+    DocumentId:
+      name: document_id
+      in: path
+      required: true
+      schema: {type: string}
+    SourceRefId:
+      name: source_ref_id
+      in: path
+      required: true
+      schema: {type: string}
+    RunId:
+      name: run_id
+      in: path
+      required: true
+      schema: {type: string}
+    FactId:
+      name: fact_id
+      in: path
+      required: true
+      schema: {type: string}
+    LinkId:
+      name: link_id
+      in: path
+      required: true
+      schema: {type: string}
+    ItemId:
+      name: item_id
+      in: path
+      required: true
+      schema: {type: string}
+    FindingId:
+      name: finding_id
+      in: path
+      required: true
+      schema: {type: string}
+    ProposalId:
+      name: proposal_id
+      in: path
+      required: true
+      schema: {type: string}
+    OperationId:
+      name: operation_id
+      in: path
+      required: true
+      schema: {type: string}
+    PageNumber:
+      name: page_number
+      in: path
+      required: true
+      schema: {type: integer, minimum: 1}
+    SlotRole:
+      name: slot_role
+      in: path
+      required: true
+      schema:
+        $ref: '#/components/schemas/SlotRole'
+    Cursor:
+      name: cursor
+      in: query
+      schema: {type: [string, 'null']}
+    Limit:
+      name: limit
+      in: query
+      schema: {type: integer, minimum: 1, maximum: 100, default: 50}
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      schema: {type: string, minLength: 8, maxLength: 128}
+    IfMatch:
+      name: If-Match
+      in: header
+      required: true
+      schema: {type: string}
+  responses:
+    BadRequest:
+      description: Invalid request
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/ErrorResponse'}
+    Unauthenticated:
+      description: Authentication required
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/ErrorResponse'}
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/ErrorResponse'}
+    Conflict:
+      description: Resource state conflict
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/ErrorResponse'}
+    PreconditionFailed:
+      description: Resource version changed
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/ErrorResponse'}
+    PreconditionRequired:
+      description: Required If-Match header is missing
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/ErrorResponse'}
+    PayloadTooLarge:
+      description: File exceeds the server or selected pipeline limit
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/ErrorResponse'}
+    UnsupportedMediaType:
+      description: Unsupported source format for role
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/ErrorResponse'}
+    UnprocessableEntity:
+      description: Domain contract violation
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/ErrorResponse'}
+    ServiceUnavailable:
+      description: Required dependency unavailable
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/ErrorResponse'}
+  schemas:
+    Timestamp:
+      type: string
+      format: date-time
+    ResourceVersion:
+      type: string
+      minLength: 1
+    Sha256:
+      type: string
+      pattern: '^[a-f0-9]{64}$'
+    SlotRole:
+      type: string
+      enum: [SCRIPT, MASTER_CUE, STAGE_SPEC]
+    Origin:
+      type: string
+      enum: [REAL_REFERENCE, USER_PROVIDED, CONTROLLED_FIXTURE, MUTATED_FIXTURE, DERIVED, AI_PROPOSED]
+    ReviewStatus:
+      type: string
+      enum: [UNREVIEWED, REVIEWED, REJECTED]
+    WorkflowStatus:
+      type: string
+      enum:
+        - DRAFT
+        - SOURCE_CONFIRMATION
+        - EXTRACTING
+        - EXTRACTION_REVIEW
+        - READY_TO_VERIFY
+        - FINDINGS_REVIEW
+        - AWAITING_MASTER_REUPLOAD
+        - REVERIFYING
+        - COMPLETE
+        - BLOCKED_ROLE_MISMATCH
+        - BLOCKED_MISSING_INPUT
+        - FAILED
+        - STALE
+    VerificationStatus:
+      type: string
+      enum: [NOT_RUN, RUNNING, FINDINGS_PRESENT, CONSISTENT, CONSISTENT_WITH_EXCEPTIONS, INSUFFICIENT, FAILED, STALE]
+    SimulationStatus:
+      type: string
+      enum: [LOCKED, READY, READY_WITH_EXCEPTIONS, FAILED, STALE]
+    OperationStatus:
+      type: string
+      enum: [QUEUED, RUNNING, WAITING_FOR_REVIEW, SUCCEEDED, FAILED, CANCELLED]
+    FindingVerdict:
+      type: string
+      enum: [VIOLATION, REVIEW, INSUFFICIENT, NO_CONFLICT_WITHIN_DECLARED_CONSTRAINTS]
+    FindingSeverity:
+      type: string
+      enum: [ERROR, WARNING, INFO]
+    FindingLifecycle:
+      type: string
+      enum: [OPEN, CLOSED_BY_REVERIFICATION]
+    ProposalType:
+      type: string
+      enum: [MASTER_CUE_EDIT_SUGGESTION, RESOLUTION_OPTIONS, CLARIFICATION_REQUEST, MISSING_INPUT_REQUEST]
+    ProposalStatus:
+      type: string
+      enum: [PROPOSED, ACCEPTED, REJECTED, SUPERSEDED]
+    EventLinkStatus:
+      type: string
+      enum: [PROPOSED, APPROVED, REJECTED, STALE]
+    HealthResponse:
+      type: object
+      required: [status]
+      properties:
+        status: {type: string, const: ok}
+    ReadinessResponse:
+      type: object
+      required: [status, dependencies]
+      properties:
+        status: {type: string, enum: [ready, degraded]}
+        dependencies:
+          type: object
+          additionalProperties:
+            type: string
+            enum: [ready, degraded, unavailable]
+    Actor:
+      type: object
+      required: [actor_id, display_name, workspace_id]
+      properties:
+        actor_id: {type: string}
+        display_name: {type: string}
+        workspace_id: {type: string}
+        roles:
+          type: array
+          items: {type: string}
+    Capabilities:
+      type: object
+      required: [api_version, extraction_pipeline_versions, rule_set_versions, source_slots, upstage_polling, upstage_webhook, item_location_verified, cache_fallback, solar_explanation, config_pin_verified]
+      properties:
+        api_version: {type: string}
+        extraction_pipeline_versions:
+          type: array
+          minItems: 1
+          items: {type: string}
+        rule_set_versions:
+          type: array
+          minItems: 1
+          items: {type: string}
+        source_slots:
+          type: array
+          minItems: 3
+          maxItems: 3
+          items: {$ref: '#/components/schemas/SourceSlotCapability'}
+        upstage_polling: {type: boolean, const: true}
+        upstage_webhook: {type: boolean, default: false}
+        item_location_verified: {type: boolean}
+        cache_fallback: {type: boolean}
+        solar_explanation: {type: boolean}
+        config_pin_verified:
+          type: boolean
+          description: True only after config_id was sent explicitly and the deployment passed a live pinning smoke test.
+    SourceSlotCapability:
+      type: object
+      required: [slot_role, media_types, max_upload_bytes]
+      properties:
+        slot_role: {$ref: '#/components/schemas/SlotRole'}
+        media_types:
+          type: array
+          minItems: 1
+          items: {type: string}
+        max_upload_bytes: {type: integer, minimum: 1}
+        max_pages: {type: [integer, 'null'], minimum: 1}
+    Production:
+      type: object
+      required: [production_id, name, created_at, updated_at, resource_version]
+      properties:
+        production_id: {type: string}
+        name: {type: string}
+        description: {type: [string, 'null']}
+        created_at: {$ref: '#/components/schemas/Timestamp'}
+        updated_at: {$ref: '#/components/schemas/Timestamp'}
+        resource_version: {$ref: '#/components/schemas/ResourceVersion'}
+    CreateProductionRequest:
+      type: object
+      additionalProperties: false
+      required: [name]
+      properties:
+        name: {type: string, minLength: 1, maxLength: 200}
+        description: {type: [string, 'null'], maxLength: 2000}
+    UpdateProductionRequest:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      properties:
+        name: {type: string, minLength: 1, maxLength: 200}
+        description: {type: [string, 'null'], maxLength: 2000}
+    ProductionList:
+      type: object
+      required: [items, next_cursor]
+      properties:
+        items:
+          type: array
+          items: {$ref: '#/components/schemas/Production'}
+        next_cursor: {type: [string, 'null']}
+    CaseScope:
+      type: object
+      required: [kind, description]
+      properties:
+        kind: {type: string, enum: [HERO_SEGMENT, FULL_PRODUCTION]}
+        description: {type: string}
+        source_marker: {type: [string, 'null']}
+    VerificationCase:
+      type: object
+      required: [case_id, production_id, label, scope, active_revision_id, active_workflow_status, active_verification_status, active_simulation_status, resource_version, created_at, updated_at]
+      properties:
+        case_id: {type: string}
+        production_id: {type: string}
+        label: {type: string}
+        scope: {$ref: '#/components/schemas/CaseScope'}
+        active_revision_id: {type: string}
+        active_workflow_status: {$ref: '#/components/schemas/WorkflowStatus'}
+        active_verification_status: {$ref: '#/components/schemas/VerificationStatus'}
+        active_simulation_status: {$ref: '#/components/schemas/SimulationStatus'}
+        aggregate_gate: {$ref: '#/components/schemas/AggregateGate'}
+        resource_version: {$ref: '#/components/schemas/ResourceVersion'}
+        created_at: {$ref: '#/components/schemas/Timestamp'}
+        updated_at: {$ref: '#/components/schemas/Timestamp'}
+      allOf:
+        - if:
+            properties: {active_simulation_status: {const: READY}}
+          then:
+            properties:
+              active_workflow_status: {const: COMPLETE}
+              active_verification_status: {const: CONSISTENT}
+        - if:
+            properties: {active_simulation_status: {const: READY_WITH_EXCEPTIONS}}
+          then:
+            properties:
+              active_workflow_status: {const: COMPLETE}
+              active_verification_status: {const: CONSISTENT_WITH_EXCEPTIONS}
+    CreateCaseRequest:
+      type: object
+      additionalProperties: false
+      required: [label, scope]
+      properties:
+        label: {type: string, minLength: 1, maxLength: 200}
+        scope: {$ref: '#/components/schemas/CaseScope'}
+    CreateCaseResponse:
+      type: object
+      required: [case, initial_revision]
+      properties:
+        case: {$ref: '#/components/schemas/VerificationCase'}
+        initial_revision: {$ref: '#/components/schemas/CaseRevision'}
+    CaseList:
+      type: object
+      required: [items, next_cursor]
+      properties:
+        items:
+          type: array
+          items: {$ref: '#/components/schemas/VerificationCase'}
+        next_cursor: {type: [string, 'null']}
+    CaseRevision:
+      type: object
+      required: [revision_id, case_id, label, workflow_status, verification_status, simulation_status, source_manifest, created_at, resource_version]
+      properties:
+        revision_id: {type: string}
+        case_id: {type: string}
+        parent_revision_id: {type: [string, 'null']}
+        label: {type: string}
+        workflow_status: {$ref: '#/components/schemas/WorkflowStatus'}
+        verification_status: {$ref: '#/components/schemas/VerificationStatus'}
+        simulation_status: {$ref: '#/components/schemas/SimulationStatus'}
+        source_manifest: {$ref: '#/components/schemas/SourceManifest'}
+        review_snapshot_id: {type: [string, 'null']}
+        compile_run_id: {type: [string, 'null']}
+        verification_run_id: {type: [string, 'null']}
+        aggregate_gate: {$ref: '#/components/schemas/AggregateGate'}
+        created_at: {$ref: '#/components/schemas/Timestamp'}
+        resource_version: {$ref: '#/components/schemas/ResourceVersion'}
+      allOf:
+        - if:
+            properties: {simulation_status: {const: READY}}
+          then:
+            properties:
+              workflow_status: {const: COMPLETE}
+              verification_status: {const: CONSISTENT}
+        - if:
+            properties: {simulation_status: {const: READY_WITH_EXCEPTIONS}}
+          then:
+            properties:
+              workflow_status: {const: COMPLETE}
+              verification_status: {const: CONSISTENT_WITH_EXCEPTIONS}
+    RevisionList:
+      type: object
+      required: [items, next_cursor]
+      properties:
+        items:
+          type: array
+          items: {$ref: '#/components/schemas/CaseRevision'}
+        next_cursor: {type: [string, 'null']}
+    SourceUploadRequest:
+      type: object
+      required: [file, origin, revision_label]
+      properties:
+        file: {type: string, format: binary}
+        origin: {$ref: '#/components/schemas/Origin'}
+        revision_label: {type: string, minLength: 1, maxLength: 100}
+    SourceDocument:
+      type: object
+      required: [document_id, slot_role, filename, media_type, size_bytes, sha256, origin, revision_label, immutable, review_status, created_at]
+      properties:
+        document_id: {type: string}
+        parent_document_id: {type: [string, 'null']}
+        slot_role: {$ref: '#/components/schemas/SlotRole'}
+        filename: {type: string}
+        media_type: {type: string}
+        size_bytes: {type: integer, minimum: 0}
+        page_count: {type: [integer, 'null'], minimum: 1}
+        sha256: {$ref: '#/components/schemas/Sha256'}
+        origin: {$ref: '#/components/schemas/Origin'}
+        revision_label: {type: string}
+        immutable: {type: boolean, const: true}
+        role_sanity_status: {type: string, enum: [PENDING, PASSED, ROLE_MISMATCH_REVIEW]}
+        review_status: {$ref: '#/components/schemas/ReviewStatus'}
+        created_at: {$ref: '#/components/schemas/Timestamp'}
+    SourceManifestItem:
+      type: object
+      required: [slot_role, document_id, sha256, origin, confirmed]
+      properties:
+        slot_role: {$ref: '#/components/schemas/SlotRole'}
+        document_id: {type: string}
+        sha256: {$ref: '#/components/schemas/Sha256'}
+        origin: {$ref: '#/components/schemas/Origin'}
+        confirmed: {type: boolean}
+    SourceManifest:
+      type: object
+      required: [revision_id, sources, source_selection_confirmed, manifest_hash, resource_version]
+      properties:
+        revision_id: {type: string}
+        sources:
+          type: array
+          minItems: 0
+          maxItems: 3
+          items: {$ref: '#/components/schemas/SourceManifestItem'}
+        source_selection_confirmed: {type: boolean}
+        manifest_hash: {type: [string, 'null']}
+        confirmed_at: {type: [string, 'null'], format: date-time}
+        resource_version: {$ref: '#/components/schemas/ResourceVersion'}
+      allOf:
+        - if:
+            required: [source_selection_confirmed]
+            properties:
+              source_selection_confirmed: {const: true}
+          then:
+            properties:
+              sources:
+                minItems: 3
+                maxItems: 3
+                items:
+                  allOf:
+                    - $ref: '#/components/schemas/SourceManifestItem'
+                    - required: [confirmed]
+                      properties:
+                        confirmed: {const: true}
+                allOf:
+                  - contains:
+                      required: [slot_role]
+                      properties: {slot_role: {const: SCRIPT}}
+                    minContains: 1
+                    maxContains: 1
+                  - contains:
+                      required: [slot_role]
+                      properties: {slot_role: {const: MASTER_CUE}}
+                    minContains: 1
+                    maxContains: 1
+                  - contains:
+                      required: [slot_role]
+                      properties: {slot_role: {const: STAGE_SPEC}}
+                    minContains: 1
+                    maxContains: 1
+              manifest_hash: {$ref: '#/components/schemas/Sha256'}
+              confirmed_at: {type: string, format: date-time}
+          else:
+            properties:
+              manifest_hash: {type: 'null'}
+              confirmed_at: {type: 'null'}
+    ConfirmSourceItem:
+      type: object
+      additionalProperties: false
+      required: [slot_role, document_id, sha256]
+      properties:
+        slot_role: {$ref: '#/components/schemas/SlotRole'}
+        document_id: {type: string}
+        sha256: {$ref: '#/components/schemas/Sha256'}
+    ConfirmSourcesRequest:
+      type: object
+      additionalProperties: false
+      required: [sources]
+      properties:
+        sources:
+          type: array
+          minItems: 3
+          maxItems: 3
+          items: {$ref: '#/components/schemas/ConfirmSourceItem'}
+          allOf:
+            - contains:
+                required: [slot_role]
+                properties: {slot_role: {const: SCRIPT}}
+              minContains: 1
+              maxContains: 1
+            - contains:
+                required: [slot_role]
+                properties: {slot_role: {const: MASTER_CUE}}
+              minContains: 1
+              maxContains: 1
+            - contains:
+                required: [slot_role]
+                properties: {slot_role: {const: STAGE_SPEC}}
+              minContains: 1
+              maxContains: 1
+    MasterReuploadRequest:
+      type: object
+      required: [file, revision_label, change_note, expected_parent_master_hash, expected_source_snapshot_digest]
+      properties:
+        file: {type: string, format: binary}
+        revision_label: {type: string, minLength: 1, maxLength: 100}
+        change_note: {type: string, minLength: 1, maxLength: 2000}
+        expected_parent_master_hash: {$ref: '#/components/schemas/Sha256'}
+        expected_source_snapshot_digest: {$ref: '#/components/schemas/Sha256'}
+        origin:
+          $ref: '#/components/schemas/Origin'
+    MasterReuploadAccepted:
+      type: object
+      required: [child_revision, operation, carried_forward, invalidated]
+      properties:
+        child_revision: {$ref: '#/components/schemas/CaseRevision'}
+        operation: {$ref: '#/components/schemas/OperationAccepted'}
+        carried_forward:
+          type: array
+          items: {$ref: '#/components/schemas/RevisionTransitionSummaryItem'}
+        invalidated:
+          type: array
+          items: {$ref: '#/components/schemas/RevisionTransitionSummaryItem'}
+    RevisionTransitionSummaryItem:
+      type: object
+      required: [resource_type, count, reason]
+      properties:
+        resource_type: {type: string}
+        count: {type: integer, minimum: 0}
+        reason: {type: string}
+    UpstageReference:
+      type: object
+      required: [agent_id, config_id, config_pin_verified]
+      properties:
+        upstream_file_id: {type: [string, 'null']}
+        upstream_job_id: {type: [string, 'null']}
+        agent_id: {type: string}
+        config_id: {type: string}
+        config_pin_verified:
+          type: boolean
+          const: true
+          description: The requested config_id was explicitly sent and this pipeline passed the live pinning smoke gate.
+        returned_agent_id: {type: [string, 'null']}
+        raw_response_object_key: {type: [string, 'null']}
+    StartExtractionRequest:
+      type: object
+      additionalProperties: false
+      required: [mode, pipeline_version]
+      properties:
+        mode: {type: string, enum: [LIVE, CACHE_ONLY, LIVE_WITH_CACHE_FALLBACK]}
+        pipeline_version: {type: string, minLength: 1, maxLength: 100}
+    ExtractionRoleRun:
+      type: object
+      required: [slot_role, status, source_document_id, cache_hit]
+      properties:
+        slot_role: {$ref: '#/components/schemas/SlotRole'}
+        status: {$ref: '#/components/schemas/OperationStatus'}
+        source_document_id: {type: string}
+        upstream: {$ref: '#/components/schemas/UpstageReference'}
+        cache_hit: {type: boolean}
+        decoder_version: {type: [string, 'null']}
+        fact_count: {type: integer, minimum: 0}
+        error: {anyOf: [{$ref: '#/components/schemas/ErrorDetail'}, {type: 'null'}]}
+    ExtractionRun:
+      type: object
+      required: [run_id, revision_id, pipeline_version, status, role_runs, created_at]
+      properties:
+        run_id: {type: string}
+        revision_id: {type: string}
+        pipeline_version: {type: string}
+        status: {$ref: '#/components/schemas/OperationStatus'}
+        role_runs:
+          type: array
+          minItems: 3
+          maxItems: 3
+          items: {$ref: '#/components/schemas/ExtractionRoleRun'}
+        created_at: {$ref: '#/components/schemas/Timestamp'}
+        completed_at: {type: [string, 'null'], format: date-time}
+    ExtractionRunList:
+      type: object
+      required: [items, next_cursor]
+      properties:
+        items:
+          type: array
+          items: {$ref: '#/components/schemas/ExtractionRun'}
+        next_cursor: {type: [string, 'null']}
+    Fact:
+      type: object
+      required: [fact_id, revision_id, document_id, slot_role, fact_type, raw_value, origin, review_status, source_refs, resource_version]
+      properties:
+        fact_id: {type: string}
+        derived_from_fact_id: {type: [string, 'null']}
+        materialized_from_run_id: {type: [string, 'null']}
+        revision_id: {type: string}
+        document_id: {type: string}
+        slot_role: {$ref: '#/components/schemas/SlotRole'}
+        fact_type: {type: string}
+        raw_value: {type: object, additionalProperties: true}
+        reviewed_value: {type: [object, 'null'], additionalProperties: true}
+        origin: {$ref: '#/components/schemas/Origin'}
+        review_status: {$ref: '#/components/schemas/ReviewStatus'}
+        confidence: {type: [string, 'null'], enum: [low, high, null]}
+        source_refs:
+          type: array
+          minItems: 1
+          items: {type: string}
+        resource_version: {$ref: '#/components/schemas/ResourceVersion'}
+    FactList:
+      type: object
+      required: [items, next_cursor]
+      properties:
+        items:
+          type: array
+          items: {$ref: '#/components/schemas/Fact'}
+        next_cursor: {type: [string, 'null']}
+    FactReviewDecision:
+      type: string
+      enum: [APPROVE, CORRECT, REJECT]
+    FactReviewRequest:
+      type: object
+      additionalProperties: false
+      required: [decision, note, source_refs]
+      properties:
+        decision: {$ref: '#/components/schemas/FactReviewDecision'}
+        corrected_value: {type: [object, 'null'], additionalProperties: true}
+        note: {type: string, minLength: 1, maxLength: 2000}
+        source_refs:
+          type: array
+          minItems: 1
+          items: {type: string}
+      allOf:
+        - if:
+            required: [decision]
+            properties:
+              decision: {const: CORRECT}
+          then:
+            required: [corrected_value]
+            properties:
+              corrected_value: {type: object, minProperties: 1}
+          else:
+            properties:
+              corrected_value: {type: 'null'}
+    BatchFactReviewItem:
+      type: object
+      required: [fact_id, review]
+      properties:
+        fact_id: {type: string}
+        review: {$ref: '#/components/schemas/FactReviewRequest'}
+    BatchFactReviewRequest:
+      type: object
+      required: [reviews]
+      properties:
+        reviews:
+          type: array
+          minItems: 1
+          maxItems: 100
+          items: {$ref: '#/components/schemas/BatchFactReviewItem'}
+    ReviewRecord:
+      type: object
+      required: [review_id, subject_type, subject_id, decision, actor_id, note, created_at]
+      properties:
+        review_id: {type: string}
+        subject_type: {type: string, enum: [FACT, EVENT_LINK, STAGE_ZONE, ROUTE]}
+        subject_id: {type: string}
+        decision: {type: string}
+        corrected_value: {type: [object, 'null'], additionalProperties: true}
+        actor_id: {type: string}
+        note: {type: string}
+        source_refs:
+          type: array
+          items: {type: string}
+        created_at: {$ref: '#/components/schemas/Timestamp'}
+    ReviewRecordList:
+      type: object
+      required: [items, next_cursor]
+      properties:
+        items:
+          type: array
+          items: {$ref: '#/components/schemas/ReviewRecord'}
+        next_cursor: {type: [string, 'null']}
+    EventLink:
+      type: object
+      required: [link_id, revision_id, left_fact_id, right_fact_id, method, status, source_refs, resource_version]
+      properties:
+        link_id: {type: string}
+        derived_from_link_id: {type: [string, 'null']}
+        revision_id: {type: string}
+        left_fact_id: {type: string}
+        right_fact_id: {type: string}
+        method: {type: string, enum: [EXACT, NORMALIZED_EXACT, AI_PROPOSED, HUMAN_CREATED]}
+        status: {$ref: '#/components/schemas/EventLinkStatus'}
+        rationale: {type: [string, 'null']}
+        source_refs:
+          type: array
+          minItems: 2
+          items: {type: string}
+        approved_by: {type: [string, 'null']}
+        resource_version: {$ref: '#/components/schemas/ResourceVersion'}
+    EventLinkList:
+      type: object
+      required: [items, next_cursor]
+      properties:
+        items:
+          type: array
+          items: {$ref: '#/components/schemas/EventLink'}
+        next_cursor: {type: [string, 'null']}
+    CreateEventLinkRequest:
+      type: object
+      additionalProperties: false
+      required: [left_fact_id, right_fact_id, rationale, source_refs]
+      properties:
+        left_fact_id: {type: string}
+        right_fact_id: {type: string}
+        rationale: {type: string, minLength: 1, maxLength: 2000}
+        source_refs:
+          type: array
+          minItems: 2
+          items: {type: string}
+    EventLinkDecisionRequest:
+      type: object
+      additionalProperties: false
+      required: [decision, note]
+      properties:
+        decision: {type: string, enum: [APPROVE, REJECT]}
+        note: {type: string, minLength: 1, maxLength: 2000}
+    StageGeometry:
+      type: object
+      required: [x, y]
+      properties:
+        x: {type: number, minimum: 0, maximum: 1}
+        y: {type: number, minimum: 0, maximum: 1}
+    TimeRange:
+      type: object
+      required: [min_ms, max_ms, semantics, origin, review_status]
+      properties:
+        min_ms: {type: integer, minimum: 0}
+        max_ms: {type: integer, minimum: 0}
+        semantics: {type: string, enum: [AVAILABLE_WINDOW, MINIMUM_REQUIRED, ROUTE_TIME, EVENT_TIME, UNKNOWN]}
+        origin: {$ref: '#/components/schemas/Origin'}
+        review_status: {$ref: '#/components/schemas/ReviewStatus'}
+    StageZone:
+      type: object
+      required: [zone_id, label, origin, review_status, source_refs, resource_version]
+      properties:
+        zone_id: {type: string}
+        label: {type: string}
+        capacity: {type: [integer, 'null'], minimum: 1}
+        exclusive: {type: boolean, default: false}
+        layout_geometry: {anyOf: [{$ref: '#/components/schemas/StageGeometry'}, {type: 'null'}]}
+        layout_scale: {type: string, enum: [NOT_TO_SCALE]}
+        origin: {$ref: '#/components/schemas/Origin'}
+        review_status: {$ref: '#/components/schemas/ReviewStatus'}
+        source_refs:
+          type: array
+          minItems: 1
+          items: {type: string}
+        resource_version: {$ref: '#/components/schemas/ResourceVersion'}
+    Route:
+      type: object
+      required: [route_id, from_zone_id, to_zone_id, route_status, topology_complete, origin, review_status, source_refs, resource_version]
+      properties:
+        route_id: {type: string}
+        from_zone_id: {type: string}
+        to_zone_id: {type: string}
+        direction: {type: string, enum: [ONE_WAY, TWO_WAY]}
+        route_status: {type: string, enum: [AVAILABLE, PROHIBITED, UNKNOWN]}
+        time_range: {anyOf: [{$ref: '#/components/schemas/TimeRange'}, {type: 'null'}]}
+        capacity: {type: [integer, 'null'], minimum: 1}
+        exclusive: {type: boolean, default: false}
+        topology_complete: {type: boolean}
+        origin: {$ref: '#/components/schemas/Origin'}
+        review_status: {$ref: '#/components/schemas/ReviewStatus'}
+        source_refs:
+          type: array
+          minItems: 1
+          items: {type: string}
+        resource_version: {$ref: '#/components/schemas/ResourceVersion'}
+    StageGraph:
+      type: object
+      required: [stage_graph_version, revision_id, layout_scale, zones, routes, review_status]
+      properties:
+        stage_graph_version: {type: string}
+        carried_from_stage_graph_version: {type: [string, 'null']}
+        revision_id: {type: string}
+        layout_scale: {type: string, enum: [NOT_TO_SCALE]}
+        zones:
+          type: array
+          items: {$ref: '#/components/schemas/StageZone'}
+        routes:
+          type: array
+          items: {$ref: '#/components/schemas/Route'}
+        review_status: {$ref: '#/components/schemas/ReviewStatus'}
+    StageItemReviewRequest:
+      type: object
+      additionalProperties: false
+      required: [decision, note, source_refs]
+      properties:
+        decision: {type: string, enum: [APPROVE, CORRECT, REJECT]}
+        corrected_value: {type: [object, 'null'], additionalProperties: true}
+        note: {type: string, minLength: 1, maxLength: 2000}
+        source_refs:
+          type: array
+          minItems: 1
+          items: {type: string}
+      allOf:
+        - if:
+            required: [decision]
+            properties:
+              decision: {const: CORRECT}
+          then:
+            required: [corrected_value]
+            properties:
+              corrected_value: {type: object, minProperties: 1}
+          else:
+            properties:
+              corrected_value: {type: 'null'}
+    SourceDocumentAuthority:
+      type: object
+      additionalProperties: false
+      required: [kind, document_id, slot_role]
+      properties:
+        kind: {type: string, const: SOURCE_DOCUMENT}
+        document_id: {type: string}
+        slot_role: {$ref: '#/components/schemas/SlotRole'}
+    ResponsibleRoleAuthority:
+      type: object
+      additionalProperties: false
+      required: [kind, role_label]
+      properties:
+        kind: {type: string, const: RESPONSIBLE_ROLE}
+        role_label: {type: string, minLength: 1, maxLength: 200}
+    AuthorityBasis:
+      oneOf:
+        - $ref: '#/components/schemas/SourceDocumentAuthority'
+        - $ref: '#/components/schemas/ResponsibleRoleAuthority'
+      discriminator:
+        propertyName: kind
+        mapping:
+          SOURCE_DOCUMENT: '#/components/schemas/SourceDocumentAuthority'
+          RESPONSIBLE_ROLE: '#/components/schemas/ResponsibleRoleAuthority'
+    AuthorityDecision:
+      type: object
+      required: [authority_decision_id, revision_id, scope_type, scope_id, authority_basis, status, decided_by, rationale, source_refs, created_at]
+      properties:
+        authority_decision_id: {type: string}
+        carried_from_authority_decision_id: {type: [string, 'null']}
+        revision_id: {type: string}
+        scope_type: {type: string, enum: [FACT, FIELD, RULE, STAGE_GEOMETRY, EVENT_LINK]}
+        scope_id: {type: string}
+        authority_basis: {$ref: '#/components/schemas/AuthorityBasis'}
+        status: {$ref: '#/components/schemas/ReviewStatus'}
+        decided_by: {type: string}
+        rationale: {type: string}
+        source_refs:
+          type: array
+          minItems: 1
+          items: {type: string}
+        created_at: {$ref: '#/components/schemas/Timestamp'}
+    CreateAuthorityDecisionRequest:
+      type: object
+      additionalProperties: false
+      required: [scope_type, scope_id, authority_basis, status, rationale, source_refs]
+      properties:
+        scope_type: {type: string, enum: [FACT, FIELD, RULE, STAGE_GEOMETRY, EVENT_LINK]}
+        scope_id: {type: string}
+        authority_basis: {$ref: '#/components/schemas/AuthorityBasis'}
+        status: {$ref: '#/components/schemas/ReviewStatus'}
+        rationale: {type: string, minLength: 1, maxLength: 2000}
+        source_refs:
+          type: array
+          minItems: 1
+          items: {type: string}
+    AuthorityDecisionList:
+      type: object
+      required: [items, next_cursor]
+      properties:
+        items:
+          type: array
+          items: {$ref: '#/components/schemas/AuthorityDecision'}
+        next_cursor: {type: [string, 'null']}
+    ReviewState:
+      type: object
+      required: [revision_id, source_snapshot_digest, fact_set_version, link_set_version, stage_graph_version, authority_version, required_review_counts, ready_to_freeze, blockers, resource_version]
+      properties:
+        revision_id: {type: string}
+        source_snapshot_digest: {$ref: '#/components/schemas/Sha256'}
+        fact_set_version: {type: string}
+        link_set_version: {type: string}
+        stage_graph_version: {type: string}
+        authority_version: {type: string}
+        required_review_counts:
+          type: object
+          additionalProperties: false
+          required: [facts_remaining, links_remaining, stage_items_remaining, authorities_remaining]
+          properties:
+            facts_remaining: {type: integer, minimum: 0}
+            links_remaining: {type: integer, minimum: 0}
+            stage_items_remaining: {type: integer, minimum: 0}
+            authorities_remaining: {type: integer, minimum: 0}
+        ready_to_freeze: {type: boolean}
+        blockers:
+          type: array
+          items: {type: string}
+        resource_version: {$ref: '#/components/schemas/ResourceVersion'}
+    CompleteReviewGateRequest:
+      type: object
+      additionalProperties: false
+      required: [scope, expected_fact_set_version, expected_link_set_version, expected_stage_graph_version, expected_authority_version]
+      properties:
+        scope: {type: string, enum: [CURRENT_CASE_SCOPE]}
+        expected_fact_set_version: {type: string}
+        expected_link_set_version: {type: string}
+        expected_stage_graph_version: {type: string}
+        expected_authority_version: {type: string}
+    ReviewSnapshot:
+      type: object
+      required: [review_snapshot_id, revision_id, source_snapshot_digest, fact_set_version, link_set_version, stage_graph_version, authority_version, snapshot_hash, created_at]
+      properties:
+        review_snapshot_id: {type: string}
+        revision_id: {type: string}
+        source_snapshot_digest: {$ref: '#/components/schemas/Sha256'}
+        fact_set_version: {type: string}
+        link_set_version: {type: string}
+        stage_graph_version: {type: string}
+        authority_version: {type: string}
+        snapshot_hash: {$ref: '#/components/schemas/Sha256'}
+        created_at: {$ref: '#/components/schemas/Timestamp'}
+    VerificationReadiness:
+      type: object
+      required: [revision_id, review_snapshot_id, rule_set_version, input_fingerprint, can_start, blockers]
+      properties:
+        revision_id: {type: string}
+        review_snapshot_id: {type: string}
+        rule_set_version: {type: string}
+        input_fingerprint: {$ref: '#/components/schemas/Sha256'}
+        can_start: {type: boolean}
+        blockers:
+          type: array
+          items:
+            type: object
+            required: [code, resource_type, resource_id]
+            properties:
+              code: {type: string}
+              resource_type: {type: string}
+              resource_id: {type: string}
+    StartVerificationRequest:
+      type: object
+      additionalProperties: false
+      required: [review_snapshot_id, run_type, rule_set_version, expected_input_fingerprint]
+      properties:
+        review_snapshot_id: {type: string}
+        run_type: {type: string, enum: [INITIAL, REVERIFY]}
+        rule_set_version: {type: string}
+        expected_input_fingerprint: {$ref: '#/components/schemas/Sha256'}
+    AggregateGate:
+      type: object
+      required: [blocking_count, evidence_completeness, authority_status, final_gate, reasons]
+      properties:
+        blocking_count: {type: integer, minimum: 0}
+        evidence_completeness: {type: string, enum: [COMPLETE, INCOMPLETE]}
+        authority_status: {type: string, enum: [REVIEWED, UNREVIEWED, CONFLICT]}
+        final_gate: {type: string, enum: [LOCKED, READY, READY_WITH_EXCEPTIONS]}
+        reasons:
+          type: array
+          items: {type: string}
+    FinalGateEvaluation:
+      type: object
+      required: [revision_id, verification_run_id, input_fingerprint, gate_status, blocker_counts, blocker_refs, aggregate_gate, evaluated_at]
+      properties:
+        revision_id: {type: string}
+        verification_run_id: {type: [string, 'null']}
+        input_fingerprint:
+          anyOf:
+            - $ref: '#/components/schemas/Sha256'
+            - {type: 'null'}
+        gate_status: {type: string, enum: [LOCKED, READY, READY_WITH_EXCEPTIONS]}
+        blocker_counts:
+          type: object
+          additionalProperties: false
+          required: [open_violations, unresolved_reviews, insufficient_rules, missing_inputs, role_mismatches, authority_conflicts, false_positive_decisions, accepted_exceptions]
+          properties:
+            open_violations: {type: integer, minimum: 0}
+            unresolved_reviews: {type: integer, minimum: 0}
+            insufficient_rules: {type: integer, minimum: 0}
+            missing_inputs: {type: integer, minimum: 0}
+            role_mismatches: {type: integer, minimum: 0}
+            authority_conflicts: {type: integer, minimum: 0}
+            false_positive_decisions: {type: integer, minimum: 0}
+            accepted_exceptions: {type: integer, minimum: 0}
+        blocker_refs:
+          type: array
+          items:
+            type: object
+            required: [category, resource_type, resource_id]
+            properties:
+              category: {type: string}
+              resource_type: {type: string}
+              resource_id: {type: string}
+        aggregate_gate: {$ref: '#/components/schemas/AggregateGate'}
+        evaluated_at: {$ref: '#/components/schemas/Timestamp'}
+      allOf:
+        - if:
+            properties:
+              gate_status: {enum: [READY, READY_WITH_EXCEPTIONS]}
+          then:
+            properties:
+              verification_run_id: {type: string}
+              input_fingerprint: {$ref: '#/components/schemas/Sha256'}
+    RuleRunSummary:
+      type: object
+      required: [rule_id, status, result_count]
+      properties:
+        rule_id: {type: string}
+        status: {$ref: '#/components/schemas/OperationStatus'}
+        result_count: {type: integer, minimum: 0}
+    VerificationRun:
+      type: object
+      required: [run_id, revision_id, run_type, status, review_snapshot_id, input_fingerprint, rule_set_version, rule_runs, aggregate_gate, created_at]
+      properties:
+        run_id: {type: string}
+        revision_id: {type: string}
+        run_type: {type: string, enum: [INITIAL, REVERIFY]}
+        status: {$ref: '#/components/schemas/OperationStatus'}
+        review_snapshot_id: {type: string}
+        input_fingerprint: {$ref: '#/components/schemas/Sha256'}
+        compile_run_id: {type: [string, 'null']}
+        graph_hash: {type: [string, 'null']}
+        rule_set_version: {type: string}
+        result_hash: {type: [string, 'null']}
+        rule_runs:
+          type: array
+          items: {$ref: '#/components/schemas/RuleRunSummary'}
+        aggregate_gate: {$ref: '#/components/schemas/AggregateGate'}
+        created_at: {$ref: '#/components/schemas/Timestamp'}
+        completed_at: {type: [string, 'null'], format: date-time}
+    VerificationRunList:
+      type: object
+      required: [items, next_cursor]
+      properties:
+        items:
+          type: array
+          items: {$ref: '#/components/schemas/VerificationRun'}
+        next_cursor: {type: [string, 'null']}
+    EntityState:
+      type: object
+      required: [entity_id, entity_type, state]
+      properties:
+        entity_id: {type: string}
+        entity_type: {type: string, enum: [ACTOR, CREW, PROP, CUE]}
+        state: {type: string}
+        zone_id: {type: [string, 'null']}
+        holder_entity_id: {type: [string, 'null']}
+    CompiledEvent:
+      type: object
+      required: [event_id, sequence_index, event_type, label, source_refs, before_states, after_states, origin]
+      properties:
+        event_id: {type: string}
+        sequence_index: {type: integer, minimum: 1}
+        event_type: {type: string}
+        label: {type: string}
+        time_range: {anyOf: [{$ref: '#/components/schemas/TimeRange'}, {type: 'null'}]}
+        source_refs:
+          type: array
+          minItems: 1
+          items: {type: string}
+        before_states:
+          type: array
+          items: {$ref: '#/components/schemas/EntityState'}
+        after_states:
+          type: array
+          items: {$ref: '#/components/schemas/EntityState'}
+        active_route_ids:
+          type: array
+          items: {type: string}
+        origin: {$ref: '#/components/schemas/Origin'}
+    CompiledEventList:
+      type: object
+      required: [revision_id, compile_run_id, graph_hash, items]
+      properties:
+        revision_id: {type: string}
+        compile_run_id: {type: string}
+        graph_hash: {$ref: '#/components/schemas/Sha256'}
+        items:
+          type: array
+          minItems: 8
+          maxItems: 8
+          items: {$ref: '#/components/schemas/CompiledEvent'}
+    SegmentLineage:
+      type: object
+      additionalProperties: false
+      required: [segment_lineage_id, scope_id, boundary_event_lineage_keys]
+      properties:
+        segment_lineage_id: {type: string}
+        scope_id: {type: string}
+        boundary_event_lineage_keys:
+          type: array
+          minItems: 1
+          uniqueItems: true
+          items: {type: string}
+    Finding:
+      type: object
+      required: [finding_id, revision_id, verification_run_id, finding_lineage_key, segment_lineage, entity_ids, rule_id, type, verdict, severity, origin, evidence_origins, evidence_state, source_refs, assumptions, lifecycle, resource_version]
+      properties:
+        finding_id: {type: string}
+        revision_id: {type: string}
+        verification_run_id: {type: string}
+        finding_lineage_key: {type: string}
+        segment_lineage: {$ref: '#/components/schemas/SegmentLineage'}
+        rule_id: {type: string}
+        type: {type: string}
+        verdict: {$ref: '#/components/schemas/FindingVerdict'}
+        severity: {$ref: '#/components/schemas/FindingSeverity'}
+        origin: {type: string, const: DERIVED}
+        evidence_origins:
+          type: array
+          minItems: 1
+          uniqueItems: true
+          items: {$ref: '#/components/schemas/Origin'}
+        evidence_state: {type: string, enum: [UNREVIEWED, REVIEWED, INCOMPLETE]}
+        message: {type: [string, 'null']}
+        calculation: {type: [string, 'null']}
+        calculation_trace:
+          type: array
+          items: {type: object, additionalProperties: true}
+        entity_ids:
+          type: array
+          minItems: 1
+          uniqueItems: true
+          items: {type: string}
+        source_refs:
+          type: array
+          minItems: 1
+          items: {type: string}
+        assumptions:
+          type: array
+          items: {type: string}
+        lifecycle: {$ref: '#/components/schemas/FindingLifecycle'}
+        detected_revision_id: {type: string}
+        resolved_revision_id: {type: [string, 'null']}
+        resource_version: {$ref: '#/components/schemas/ResourceVersion'}
+    FindingList:
+      type: object
+      required: [items, next_cursor]
+      properties:
+        items:
+          type: array
+          items: {$ref: '#/components/schemas/Finding'}
+        next_cursor: {type: [string, 'null']}
+    FindingEvidence:
+      type: object
+      required: [finding_id, calculation_trace, sources]
+      properties:
+        finding_id: {type: string}
+        calculation_trace:
+          type: array
+          items: {type: object, additionalProperties: true}
+        sources:
+          type: array
+          minItems: 1
+          items: {$ref: '#/components/schemas/SourceReference'}
+    FindingDecisionRequest:
+      type: object
+      additionalProperties: false
+      required: [decision, note, source_refs]
+      properties:
+        decision: {type: string, enum: [ACTUAL_CONFLICT, FALSE_POSITIVE, NEEDS_CLARIFICATION, EVIDENCE_INSUFFICIENT]}
+        note: {type: string, minLength: 1, maxLength: 4000}
+        source_refs:
+          type: array
+          minItems: 1
+          items: {type: string}
+    ExceptionDecisionRequest:
+      type: object
+      additionalProperties: false
+      required: [decision, rationale, source_refs, expected_verification_run_id, expected_input_fingerprint]
+      properties:
+        decision: {type: string, const: ACCEPT_EXCEPTION}
+        rationale: {type: string, minLength: 1, maxLength: 4000}
+        source_refs:
+          type: array
+          minItems: 1
+          items: {type: string}
+        expected_verification_run_id: {type: string}
+        expected_input_fingerprint: {$ref: '#/components/schemas/Sha256'}
+    ExceptionDecision:
+      type: object
+      required: [exception_decision_id, finding_id, verification_run_id, input_fingerprint, decision, rationale, source_refs, approver_id, created_at]
+      properties:
+        exception_decision_id: {type: string}
+        finding_id: {type: string}
+        verification_run_id: {type: string}
+        input_fingerprint: {$ref: '#/components/schemas/Sha256'}
+        decision: {type: string, const: ACCEPT_EXCEPTION}
+        rationale: {type: string}
+        source_refs:
+          type: array
+          minItems: 1
+          items: {type: string}
+        approver_id: {type: string}
+        created_at: {$ref: '#/components/schemas/Timestamp'}
+    ExceptionDecisionList:
+      type: object
+      required: [items, next_cursor]
+      properties:
+        items:
+          type: array
+          items: {$ref: '#/components/schemas/ExceptionDecision'}
+        next_cursor: {type: [string, 'null']}
+    ProposalOption:
+      type: object
+      required: [text, source_refs, assumptions, non_authoritative]
+      properties:
+        text: {type: string}
+        source_refs:
+          type: array
+          minItems: 1
+          items: {type: string}
+        assumptions:
+          type: array
+          items: {type: string}
+        non_authoritative: {type: boolean, const: true}
+    ProposalBase:
+      type: object
+      required: [proposal_id, proposal_type, revision_id, verification_run_id, input_fingerprint, finding_id, base_document_hash, base_source_snapshot_digest, rationale, source_refs, impact_refs, status, generated_by, resource_version]
+      properties:
+        proposal_id: {type: string}
+        proposal_type: {$ref: '#/components/schemas/ProposalType'}
+        revision_id: {type: string}
+        verification_run_id: {type: string}
+        input_fingerprint: {$ref: '#/components/schemas/Sha256'}
+        finding_id: {type: string}
+        target_document_id: {type: [string, 'null']}
+        target_locator: {anyOf: [{$ref: '#/components/schemas/SheetCellLocator'}, {type: 'null'}]}
+        base_document_hash: {$ref: '#/components/schemas/Sha256'}
+        base_source_snapshot_digest: {$ref: '#/components/schemas/Sha256'}
+        current_value: {}
+        suggested_value: {}
+        rationale: {type: string}
+        authority_basis: {type: [string, 'null']}
+        authority_decision_id: {type: [string, 'null']}
+        source_refs:
+          type: array
+          minItems: 1
+          items: {type: string}
+        impact_refs:
+          type: array
+          items: {type: string}
+        status: {$ref: '#/components/schemas/ProposalStatus'}
+        generated_by: {$ref: '#/components/schemas/GenerationProvenance'}
+        resource_version: {$ref: '#/components/schemas/ResourceVersion'}
+    MasterCueEditSuggestion:
+      allOf:
+        - $ref: '#/components/schemas/ProposalBase'
+        - type: object
+          required: [target_document_id, target_locator, current_value, suggested_value, authority_basis, authority_decision_id]
+          properties:
+            proposal_type: {type: string, const: MASTER_CUE_EDIT_SUGGESTION}
+            target_document_id: {type: string, minLength: 1}
+            target_locator: {$ref: '#/components/schemas/SheetCellLocator'}
+            current_value:
+              not: {type: 'null'}
+            suggested_value:
+              not: {type: 'null'}
+            authority_basis: {type: string, minLength: 1}
+            authority_decision_id: {type: string, minLength: 1}
+    ResolutionOptions:
+      allOf:
+        - $ref: '#/components/schemas/ProposalBase'
+        - type: object
+          required: [options, suggested_value]
+          properties:
+            proposal_type: {type: string, const: RESOLUTION_OPTIONS}
+            suggested_value: {type: 'null'}
+            options:
+              type: array
+              minItems: 1
+              items: {$ref: '#/components/schemas/ProposalOption'}
+    ClarificationRequest:
+      allOf:
+        - $ref: '#/components/schemas/ProposalBase'
+        - type: object
+          required: [question, conflicting_source_refs, suggested_value]
+          properties:
+            proposal_type: {type: string, const: CLARIFICATION_REQUEST}
+            question: {type: string}
+            conflicting_source_refs:
+              type: array
+              minItems: 2
+              items: {type: string}
+            suggested_value: {type: 'null'}
+    MissingInputRequest:
+      allOf:
+        - $ref: '#/components/schemas/ProposalBase'
+        - type: object
+          required: [missing_fact_type, requested_evidence, suggested_value]
+          properties:
+            proposal_type: {type: string, const: MISSING_INPUT_REQUEST}
+            missing_fact_type: {type: string}
+            requested_evidence: {type: string}
+            suggested_value: {type: 'null'}
+    ChangeProposal:
+      oneOf:
+        - $ref: '#/components/schemas/MasterCueEditSuggestion'
+        - $ref: '#/components/schemas/ResolutionOptions'
+        - $ref: '#/components/schemas/ClarificationRequest'
+        - $ref: '#/components/schemas/MissingInputRequest'
+      discriminator:
+        propertyName: proposal_type
+        mapping:
+          MASTER_CUE_EDIT_SUGGESTION: '#/components/schemas/MasterCueEditSuggestion'
+          RESOLUTION_OPTIONS: '#/components/schemas/ResolutionOptions'
+          CLARIFICATION_REQUEST: '#/components/schemas/ClarificationRequest'
+          MISSING_INPUT_REQUEST: '#/components/schemas/MissingInputRequest'
+    ProposalList:
+      type: object
+      required: [items, next_cursor]
+      properties:
+        items:
+          type: array
+          items: {$ref: '#/components/schemas/ChangeProposal'}
+        next_cursor: {type: [string, 'null']}
+    ProposalDecisionRequest:
+      type: object
+      additionalProperties: false
+      required: [decision, note, expected_verification_run_id, expected_input_fingerprint, expected_base_document_hash, expected_source_snapshot_digest]
+      properties:
+        decision: {type: string, enum: [ACCEPT, REJECT]}
+        note: {type: string, minLength: 1, maxLength: 4000}
+        expected_verification_run_id: {type: string}
+        expected_input_fingerprint: {$ref: '#/components/schemas/Sha256'}
+        expected_base_document_hash: {$ref: '#/components/schemas/Sha256'}
+        expected_source_snapshot_digest: {$ref: '#/components/schemas/Sha256'}
+    ReviewDecision:
+      type: object
+      required: [decision_id, subject_type, subject_id, decision, note, actor_id, created_at]
+      properties:
+        decision_id: {type: string}
+        subject_type: {type: string, enum: [FINDING, PROPOSAL]}
+        subject_id: {type: string}
+        decision: {type: string}
+        note: {type: string}
+        actor_id: {type: string}
+        source_refs:
+          type: array
+          items: {type: string}
+        created_at: {$ref: '#/components/schemas/Timestamp'}
+    ReviewDecisionList:
+      type: object
+      required: [items, next_cursor]
+      properties:
+        items:
+          type: array
+          items: {$ref: '#/components/schemas/ReviewDecision'}
+        next_cursor: {type: [string, 'null']}
+    GenerationProvenance:
+      type: object
+      required: [method, prompt_version, finding_revision_id, postprocessed]
+      properties:
+        method: {type: string}
+        provider: {type: [string, 'null']}
+        model: {type: [string, 'null']}
+        model_config_id: {type: [string, 'null']}
+        prompt_version: {type: string}
+        finding_revision_id: {type: string}
+        input_hash: {type: [string, 'null']}
+        postprocessed: {type: boolean, const: true}
+    SheetCellLocator:
+      type: object
+      required: [kind, document_id, sheet, row, field]
+      properties:
+        kind: {type: string, const: SHEET_CELL}
+        document_id: {type: string}
+        sheet: {type: string}
+        row: {type: integer, minimum: 1}
+        field: {type: string}
+        source_quote: {type: [string, 'null']}
+    PageQuoteLocator:
+      type: object
+      required: [kind, document_id, page, source_quote]
+      properties:
+        kind: {type: string, const: PAGE_QUOTE}
+        document_id: {type: string}
+        page: {type: integer, minimum: 1}
+        source_quote: {type: string}
+    TableElementLocator:
+      type: object
+      required: [kind, document_id, page, element_id, source_quote, location_quality]
+      properties:
+        kind: {type: string, const: TABLE_ELEMENT}
+        document_id: {type: string}
+        page: {type: integer, minimum: 1}
+        element_id: {type: string}
+        source_quote: {type: string}
+        location_quality: {type: string, enum: [VERIFIED_ELEMENT, VERIFIED_WORD, PAGE_QUOTE_ONLY]}
+        coordinates:
+          type: [array, 'null']
+          items: {type: number}
+    TextLineLocator:
+      type: object
+      required: [kind, document_id, start_line, end_line, source_quote]
+      properties:
+        kind: {type: string, const: TEXT_LINE}
+        document_id: {type: string}
+        start_line: {type: integer, minimum: 1}
+        end_line: {type: integer, minimum: 1}
+        source_quote: {type: string}
+    SourceReference:
+      type: object
+      required: [source_ref_id, document_id, slot_role, origin, locator]
+      properties:
+        source_ref_id: {type: string}
+        document_id: {type: string}
+        slot_role: {$ref: '#/components/schemas/SlotRole'}
+        origin: {$ref: '#/components/schemas/Origin'}
+        locator:
+          oneOf:
+            - $ref: '#/components/schemas/PageQuoteLocator'
+            - $ref: '#/components/schemas/SheetCellLocator'
+            - $ref: '#/components/schemas/TableElementLocator'
+            - $ref: '#/components/schemas/TextLineLocator'
+          discriminator:
+            propertyName: kind
+    PageRender:
+      type: object
+      required: [document_id, page_number, signed_url, expires_at]
+      properties:
+        document_id: {type: string}
+        page_number: {type: integer, minimum: 1}
+        signed_url: {type: string, format: uri}
+        expires_at: {$ref: '#/components/schemas/Timestamp'}
+    SimulationFrame:
+      type: object
+      required: [event_id, sequence_index, label, time_range, actor_states, crew_states, prop_states, cue_states, active_route_ids, source_refs]
+      properties:
+        event_id: {type: string}
+        sequence_index: {type: integer, minimum: 1}
+        label: {type: string}
+        time_range: {$ref: '#/components/schemas/TimeRange'}
+        actor_states:
+          type: array
+          items: {$ref: '#/components/schemas/EntityState'}
+        crew_states:
+          type: array
+          items: {$ref: '#/components/schemas/EntityState'}
+        prop_states:
+          type: array
+          items: {$ref: '#/components/schemas/EntityState'}
+        cue_states:
+          type: array
+          items: {$ref: '#/components/schemas/EntityState'}
+        active_route_ids:
+          type: array
+          items: {type: string}
+        source_refs:
+          type: array
+          minItems: 1
+          items: {type: string}
+    AcceptedException:
+      type: object
+      required: [exception_decision_id, finding_id, verification_run_id, input_fingerprint, approver_id, rationale, source_refs]
+      properties:
+        exception_decision_id: {type: string}
+        finding_id: {type: string}
+        verification_run_id: {type: string}
+        input_fingerprint: {$ref: '#/components/schemas/Sha256'}
+        approver_id: {type: string}
+        rationale: {type: string}
+        source_refs:
+          type: array
+          minItems: 1
+          items: {type: string}
+    SimulationManifest:
+      type: object
+      required: [simulation_status, final_revision_id, source_snapshot_digest, input_fingerprint, master_document_hash, stage_graph_version, compile_run_id, verification_run_id, layout_scale, demo_disclaimer, origin_badges, stage_graph, frames, accepted_exceptions]
+      properties:
+        simulation_status: {type: string, enum: [READY, READY_WITH_EXCEPTIONS]}
+        final_revision_id: {type: string}
+        source_snapshot_digest: {$ref: '#/components/schemas/Sha256'}
+        input_fingerprint: {$ref: '#/components/schemas/Sha256'}
+        master_document_hash: {$ref: '#/components/schemas/Sha256'}
+        stage_graph_version: {type: string}
+        compile_run_id: {type: string}
+        verification_run_id: {type: string}
+        layout_scale: {type: string, const: NOT_TO_SCALE}
+        demo_disclaimer: {type: [string, 'null']}
+        origin_badges:
+          type: array
+          items: {$ref: '#/components/schemas/Origin'}
+        stage_graph: {$ref: '#/components/schemas/StageGraph'}
+        frames:
+          type: array
+          minItems: 8
+          maxItems: 8
+          items: {$ref: '#/components/schemas/SimulationFrame'}
+        accepted_exceptions:
+          type: array
+          items: {$ref: '#/components/schemas/AcceptedException'}
+      allOf:
+        - if:
+            properties:
+              simulation_status: {const: READY}
+          then:
+            properties:
+              accepted_exceptions: {maxItems: 0}
+        - if:
+            properties:
+              simulation_status: {const: READY_WITH_EXCEPTIONS}
+          then:
+            properties:
+              accepted_exceptions: {minItems: 1}
+    OperationAccepted:
+      type: object
+      required: [operation_id, status, poll_after_ms, resource_ref]
+      properties:
+        operation_id: {type: string}
+        status: {type: string, const: QUEUED}
+        poll_after_ms: {type: integer, minimum: 250}
+        resource_ref:
+          type: object
+          required: [type, id]
+          properties:
+            type: {type: string}
+            id: {type: string}
+    Operation:
+      type: object
+      required: [operation_id, operation_type, status, progress, attempt, created_at, resource_version]
+      properties:
+        operation_id: {type: string}
+        operation_type: {type: string, enum: [SOURCE_UPLOAD, EXTRACTION, VERIFICATION, MASTER_REUPLOAD, CASE_PURGE]}
+        status: {$ref: '#/components/schemas/OperationStatus'}
+        progress: {type: number, minimum: 0, maximum: 1}
+        attempt: {type: integer, minimum: 1}
+        poll_after_ms: {type: integer, minimum: 250}
+        resource_ref:
+          type: [object, 'null']
+          additionalProperties: true
+        result_source: {type: [string, 'null'], enum: [LIVE, CACHE, null]}
+        error: {anyOf: [{$ref: '#/components/schemas/ErrorDetail'}, {type: 'null'}]}
+        created_at: {$ref: '#/components/schemas/Timestamp'}
+        updated_at: {type: [string, 'null'], format: date-time}
+        completed_at: {type: [string, 'null'], format: date-time}
+        resource_version: {$ref: '#/components/schemas/ResourceVersion'}
+    AuditEvent:
+      type: object
+      required: [audit_event_id, case_id, event_type, actor_id, occurred_at, request_id]
+      properties:
+        audit_event_id: {type: string}
+        case_id: {type: string}
+        revision_id: {type: [string, 'null']}
+        event_type: {type: string}
+        actor_id: {type: string}
+        subject_type: {type: [string, 'null']}
+        subject_id: {type: [string, 'null']}
+        before: {type: [object, 'null'], additionalProperties: true}
+        after: {type: [object, 'null'], additionalProperties: true}
+        request_id: {type: string}
+        occurred_at: {$ref: '#/components/schemas/Timestamp'}
+    AuditEventList:
+      type: object
+      required: [items, next_cursor]
+      properties:
+        items:
+          type: array
+          items: {$ref: '#/components/schemas/AuditEvent'}
+        next_cursor: {type: [string, 'null']}
+    ErrorDetail:
+      type: object
+      required: [code, message, request_id, retryable, details]
+      properties:
+        code: {type: string}
+        message: {type: string}
+        request_id: {type: string}
+        retryable: {type: boolean}
+        details: {type: object, additionalProperties: true}
+    ErrorResponse:
+      type: object
+      required: [error]
+      properties:
+        error: {$ref: '#/components/schemas/ErrorDetail'}
+    SimulationLockedResponse:
+      type: object
+      required: [error, final_gate]
+      properties:
+        error: {$ref: '#/components/schemas/ErrorDetail'}
+        final_gate: {$ref: '#/components/schemas/FinalGateEvaluation'}

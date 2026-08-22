@@ -1,0 +1,20 @@
+{
+  "schema_version": "standby.cue_cell_packet.v1",
+  "artifact_status": "SOURCE_MEASURED",
+  "document_role": "MASTER_CUE",
+  "document_id": "reference-cuesheet",
+  "source_filename": "reference-cuesheet.csv",
+  "source_sha256": "8c7efcdd9ea7d98b2b035d0d702d2c919a8f547ed65cff9bf6b8ff4ebbb16039",
+  "column_map_schema_version": "standby.cue_column_map.v1",
+  "source_locator_raw": "cue:sheet0:r0046:c0013",
+  "logical_record_number": 46,
+  "logical_column_number": 13,
+  "section_cell_raw": "N#12 Fantasy",
+  "section_context_raw": "N#12 Fantasy",
+  "section_context_method": "EXPLICIT",
+  "department_group_raw": "음향",
+  "department_group_context_method": "EXPLICIT",
+  "department_lane_raw": "마이크\n(음향탭에 상세 큐 작성)",
+  "lane_side_raw": "",
+  "cell_text_raw": "노래 시작하면 전체 on\n중간 기자회견 장면\n-> 혜원,??,?? on\n노래 끝나면 전체 off"
+}

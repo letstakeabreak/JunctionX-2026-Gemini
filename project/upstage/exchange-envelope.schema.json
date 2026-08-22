@@ -1,0 +1,1665 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://standby.local/schemas/exchange-envelope.v1.json",
+  "title": "STANDBY Cue/Script evidence-preserving extraction exchange envelope v1",
+  "description": "STANDBY가 MASTER_CUE와 SCRIPT의 Upstage 추출 결과를 source identity, 실행 정보, provenance, review 상태와 함께 교환하기 위한 앱 소유 계약이다. STAGE_SPEC는 v1 실행 범위가 아니다. 이 파일은 Upstage response_format이 아니므로 일반 JSON Schema의 중첩 object와 array를 사용할 수 있다.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "contract_version",
+    "envelope_id",
+    "source",
+    "source_scope",
+    "extraction",
+    "records"
+  ],
+  "properties": {
+    "contract_version": {
+      "const": "standby.exchange.v1"
+    },
+    "envelope_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "source": {
+      "$ref": "#/$defs/source"
+    },
+    "source_scope": {
+      "$ref": "#/$defs/sourceScope"
+    },
+    "extraction": {
+      "$ref": "#/$defs/extraction"
+    },
+    "records": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/record"
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "source": {
+            "properties": {
+              "document_role": {"const": "SCRIPT"}
+            },
+            "required": ["document_role"]
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "source": {
+            "properties": {
+              "native_locator_kind": {"const": "LINE_RANGE"}
+            }
+          },
+          "source_scope": {
+            "properties": {
+              "authority_status": {"enum": ["UNREVIEWED", "REVIEWED", "REJECTED"]},
+              "segments": {
+                "minItems": 1,
+                "items": {
+                  "properties": {
+                    "start_locator": {"pattern": "^script:line:[0-9]{6}$"},
+                    "end_locator": {"pattern": "^script:line:[0-9]{6}$"}
+                  }
+                }
+              }
+            }
+          },
+          "records": {
+            "items": {
+              "properties": {
+                "record_type": {"const": "SCRIPT_FACT"}
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "source": {
+            "properties": {
+              "document_role": {"const": "MASTER_CUE"}
+            },
+            "required": ["document_role"]
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "source": {
+            "properties": {
+              "native_locator_kind": {"const": "SHEET_CELL"}
+            }
+          },
+          "source_scope": {
+            "properties": {
+              "authority_status": {"const": "NOT_APPLICABLE"},
+              "segments": {"maxItems": 0}
+            }
+          },
+          "records": {
+            "items": {
+              "properties": {
+                "record_type": {"const": "CUE_FACT"}
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "extraction": {
+            "properties": {
+              "provider_run_status": {"const": "EXPECTED_GOLD"}
+            },
+            "required": ["provider_run_status"]
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "records": {
+            "items": {
+              "properties": {
+                "provider_evidence": {
+                  "properties": {
+                    "location_status": {"const": "NOT_OBSERVED"},
+                    "confidence_status": {"const": "NOT_OBSERVED"},
+                    "location_quality": {"const": "NATIVE_ONLY"},
+                    "field_mapping_status": {"const": "NOT_OBSERVED"},
+                    "field_evidence": {"maxItems": 0},
+                    "raw_additional_values_json_text": {"type": "null"}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "extraction": {
+            "properties": {
+              "provider_run_status": {"const": "FAILED"}
+            },
+            "required": ["provider_run_status"]
+          }
+        }
+      },
+      "then": {
+        "properties": {"records": {"maxItems": 0}}
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "extraction": {
+            "properties": {
+              "decode_status": {"const": "FAILED"}
+            },
+            "required": ["decode_status"]
+          }
+        }
+      },
+      "then": {
+        "properties": {"records": {"maxItems": 0}}
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "extraction": {
+            "properties": {
+              "provider_run_status": {"const": "SUCCEEDED"},
+              "decode_status": {"const": "SUCCEEDED"}
+            },
+            "required": ["provider_run_status", "decode_status"]
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "records": {
+            "items": {
+              "properties": {
+                "provider_evidence": {
+                  "properties": {
+                    "location_status": {"enum": ["AVAILABLE", "MISSING", "NOT_REQUESTED"]},
+                    "confidence_status": {"enum": ["AVAILABLE", "MISSING", "NOT_REQUESTED"]},
+                    "field_mapping_status": {"enum": ["AVAILABLE", "PARTIAL", "MISSING", "NOT_REQUESTED"]}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "extraction": {
+            "properties": {
+              "decode_status": {"const": "SUCCEEDED"},
+              "extract_settings": {
+                "properties": {"location": {"const": false}},
+                "required": ["location"]
+              }
+            },
+            "required": ["decode_status", "extract_settings"]
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "records": {
+            "items": {
+              "properties": {
+                "provider_evidence": {
+                  "properties": {"location_status": {"const": "NOT_REQUESTED"}}
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "extraction": {
+            "properties": {
+              "decode_status": {"const": "SUCCEEDED"},
+              "extract_settings": {
+                "properties": {"location": {"const": true}},
+                "required": ["location"]
+              }
+            },
+            "required": ["decode_status", "extract_settings"]
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "records": {
+            "items": {
+              "properties": {
+                "provider_evidence": {
+                  "properties": {"location_status": {"enum": ["AVAILABLE", "MISSING"]}}
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "extraction": {
+            "properties": {
+              "decode_status": {"const": "SUCCEEDED"},
+              "extract_settings": {
+                "properties": {"confidence": {"const": false}},
+                "required": ["confidence"]
+              }
+            },
+            "required": ["decode_status", "extract_settings"]
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "records": {
+            "items": {
+              "properties": {
+                "provider_evidence": {
+                  "properties": {"confidence_status": {"const": "NOT_REQUESTED"}}
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "extraction": {
+            "properties": {
+              "decode_status": {"const": "SUCCEEDED"},
+              "extract_settings": {
+                "properties": {"confidence": {"const": true}},
+                "required": ["confidence"]
+              }
+            },
+            "required": ["decode_status", "extract_settings"]
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "records": {
+            "items": {
+              "properties": {
+                "provider_evidence": {
+                  "properties": {"confidence_status": {"enum": ["AVAILABLE", "MISSING"]}}
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "extraction": {
+            "properties": {
+              "surface": {"const": "STUDIO_AGENT"},
+              "decode_status": {"const": "SUCCEEDED"},
+              "extract_settings": {
+                "properties": {"source": {"const": "NOT_OBSERVED"}},
+                "required": ["source"]
+              }
+            },
+            "required": ["surface", "decode_status", "extract_settings"]
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "records": {
+            "items": {
+              "properties": {
+                "provider_evidence": {
+                  "properties": {
+                    "location_status": {"const": "MISSING"},
+                    "confidence_status": {"const": "MISSING"},
+                    "field_mapping_status": {"const": "MISSING"},
+                    "field_evidence": {"maxItems": 0},
+                    "location_quality": {"const": "NATIVE_ONLY"}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "extraction": {
+            "properties": {
+              "additional_values_contract_status": {"const": "NOT_OBSERVED"}
+            },
+            "required": ["additional_values_contract_status"]
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "records": {
+            "items": {
+              "properties": {
+                "provider_evidence": {
+                  "properties": {
+                    "location_status": {
+                      "enum": ["NOT_OBSERVED", "NOT_REQUESTED", "MISSING"]
+                    },
+                    "confidence_status": {
+                      "enum": ["NOT_OBSERVED", "NOT_REQUESTED", "MISSING"]
+                    },
+                    "location_quality": {"const": "NATIVE_ONLY"},
+                    "field_mapping_status": {
+                      "enum": ["NOT_OBSERVED", "NOT_REQUESTED", "MISSING"]
+                    },
+                    "field_evidence": {"maxItems": 0},
+                    "page": {"type": "null"},
+                    "coordinates": {"maxItems": 0},
+                    "word_coordinates": {"maxItems": 0},
+                    "confidence_raw": {"type": "null"}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "records": {
+            "contains": {
+              "properties": {
+                "provider_evidence": {
+                  "anyOf": [
+                    {
+                      "properties": {"location_status": {"const": "AVAILABLE"}},
+                      "required": ["location_status"]
+                    },
+                    {
+                      "properties": {"confidence_status": {"const": "AVAILABLE"}},
+                      "required": ["confidence_status"]
+                    },
+                    {
+                      "properties": {
+                        "field_mapping_status": {"enum": ["AVAILABLE", "PARTIAL"]}
+                      },
+                      "required": ["field_mapping_status"]
+                    }
+                  ]
+                }
+              },
+              "required": ["provider_evidence"]
+            },
+            "minContains": 1
+          }
+        },
+        "required": ["records"]
+      },
+      "then": {
+        "properties": {
+          "extraction": {
+            "properties": {
+              "additional_values_contract_status": {"const": "LIVE_OBSERVED"}
+            }
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "nullableString": {
+      "type": ["string", "null"]
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "document_id",
+        "document_role",
+        "filename",
+        "sha256",
+        "origin",
+        "native_locator_kind"
+      ],
+      "properties": {
+        "document_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "document_role": {
+          "enum": ["SCRIPT", "MASTER_CUE"]
+        },
+        "filename": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "origin": {
+          "enum": [
+            "REAL_REFERENCE",
+            "USER_PROVIDED",
+            "CONTROLLED_FIXTURE",
+            "MUTATED_FIXTURE"
+          ]
+        },
+        "native_locator_kind": {
+          "enum": ["SHEET_CELL", "LINE_RANGE"]
+        }
+      }
+    },
+    "sourceScope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["authority_status", "segments"],
+      "properties": {
+        "authority_status": {
+          "enum": ["NOT_APPLICABLE", "UNREVIEWED", "REVIEWED", "REJECTED"]
+        },
+        "segments": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/sourceSegment"
+          }
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {"authority_status": {"const": "UNREVIEWED"}},
+            "required": ["authority_status"]
+          },
+          "then": {
+            "properties": {
+              "segments": {
+                "minItems": 1,
+                "items": {
+                  "properties": {"authority_status": {"const": "UNREVIEWED"}}
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {"authority_status": {"const": "REVIEWED"}},
+            "required": ["authority_status"]
+          },
+          "then": {
+            "properties": {
+              "segments": {
+                "minItems": 1,
+                "items": {
+                  "properties": {"authority_status": {"const": "REVIEWED"}}
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {"authority_status": {"const": "REJECTED"}},
+            "required": ["authority_status"]
+          },
+          "then": {
+            "properties": {
+              "segments": {
+                "minItems": 1,
+                "items": {
+                  "properties": {"authority_status": {"const": "REJECTED"}}
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "sourceSegment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_segment_id",
+        "start_locator",
+        "end_locator",
+        "segment_kind",
+        "label_raw",
+        "authority_status"
+      ],
+      "properties": {
+        "source_segment_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "start_locator": {
+          "type": "string",
+          "minLength": 1
+        },
+        "end_locator": {
+          "type": "string",
+          "minLength": 1
+        },
+        "segment_kind": {
+          "type": "string",
+          "minLength": 1
+        },
+        "label_raw": {
+          "type": "string"
+        },
+        "authority_status": {
+          "enum": ["UNREVIEWED", "REVIEWED", "REJECTED"]
+        }
+      }
+    },
+    "extraction": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "provider",
+        "surface",
+        "provider_run_status",
+        "provider_error_code",
+        "provider_error_message_raw",
+        "decode_status",
+        "decode_error_code",
+        "request_schema_name",
+        "request_schema_version",
+        "request_schema_sha256",
+        "request_options",
+        "extract_settings",
+        "additional_values_contract_status",
+        "additional_values_decoder_version",
+        "input_artifact",
+        "decoder_version",
+        "returned_model",
+        "agent_id",
+        "config_id",
+        "run_id",
+        "raw_response_ref",
+        "raw_response_sha256",
+        "response_content_json_pointer",
+        "response_content_json_text",
+        "additional_values_json_pointer",
+        "additional_values_json_text",
+        "additional_values_decoded"
+      ],
+      "properties": {
+        "provider": {
+          "const": "UPSTAGE"
+        },
+        "surface": {
+          "enum": ["INFORMATION_EXTRACT", "STUDIO_AGENT"]
+        },
+        "provider_run_status": {
+          "enum": ["EXPECTED_GOLD", "SUCCEEDED", "FAILED"]
+        },
+        "provider_error_code": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "provider_error_message_raw": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "decode_status": {
+          "enum": ["NOT_RUN", "SUCCEEDED", "FAILED"]
+        },
+        "decode_error_code": {
+          "type": ["string", "null"]
+        },
+        "request_schema_name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "request_schema_version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "request_schema_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "request_options": {
+          "$ref": "#/$defs/requestOptions"
+        },
+        "extract_settings": {
+          "$ref": "#/$defs/extractSettings"
+        },
+        "additional_values_contract_status": {
+          "enum": ["NOT_OBSERVED", "LIVE_OBSERVED"]
+        },
+        "additional_values_decoder_version": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "input_artifact": {
+          "$ref": "#/$defs/inputArtifact"
+        },
+        "decoder_version": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "returned_model": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "agent_id": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "config_id": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "run_id": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "raw_response_ref": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "raw_response_sha256": {
+          "type": ["string", "null"],
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "response_content_json_pointer": {
+          "type": ["string", "null"],
+          "pattern": "^/"
+        },
+        "response_content_json_text": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "additional_values_json_pointer": {
+          "type": ["string", "null"],
+          "pattern": "^/"
+        },
+        "additional_values_json_text": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "additional_values_decoded": {
+          "type": ["object", "null"]
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {"surface": {"const": "INFORMATION_EXTRACT"}},
+            "required": ["surface"]
+          },
+          "then": {
+            "properties": {
+              "agent_id": {"type": "null"},
+              "config_id": {"type": "null"},
+              "request_options": {
+                "properties": {
+                  "include": {"maxItems": 0}
+                }
+              },
+              "extract_settings": {
+                "properties": {
+                  "source": {"const": "DIRECT_REQUEST"}
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {"surface": {"const": "STUDIO_AGENT"}},
+            "required": ["surface"]
+          },
+          "then": {
+            "properties": {
+              "agent_id": {"type": "string", "minLength": 1},
+              "config_id": {"type": "string", "minLength": 1},
+              "request_options": {
+                "properties": {
+                  "include": {
+                    "contains": {"const": "all"},
+                    "minContains": 1
+                  }
+                }
+              },
+              "extract_settings": {
+                "properties": {
+                  "source": {"enum": ["PINNED_NODE_CONFIG", "NOT_OBSERVED"]}
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "allOf": [
+              {
+                "properties": {"surface": {"const": "STUDIO_AGENT"}},
+                "required": ["surface"]
+              },
+              {
+                "properties": {"provider_run_status": {"const": "SUCCEEDED"}},
+                "required": ["provider_run_status"]
+              }
+            ]
+          },
+          "then": {
+            "properties": {
+              "input_artifact": {
+                "properties": {
+                  "provider_file_id": {"type": "string", "minLength": 1}
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {"decode_status": {"const": "FAILED"}},
+            "required": ["decode_status"]
+          },
+          "then": {
+            "properties": {
+              "provider_run_status": {"const": "SUCCEEDED"},
+              "decode_error_code": {"type": "string", "minLength": 1},
+              "decoder_version": {"type": "string", "minLength": 1}
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {"decode_status": {"enum": ["NOT_RUN", "SUCCEEDED"]}},
+            "required": ["decode_status"]
+          },
+          "then": {
+            "properties": {
+              "decode_error_code": {"type": "null"}
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {"provider_run_status": {"const": "EXPECTED_GOLD"}},
+            "required": ["provider_run_status"]
+          },
+          "then": {
+            "properties": {
+              "decode_status": {"const": "NOT_RUN"},
+              "provider_error_code": {"type": "null"},
+              "provider_error_message_raw": {"type": "null"},
+              "input_artifact": {
+                "properties": {"status": {"const": "NOT_BUILT"}}
+              },
+              "decoder_version": {"type": "null"},
+              "returned_model": {"type": "null"},
+              "run_id": {"type": "null"},
+              "raw_response_ref": {"type": "null"},
+              "raw_response_sha256": {"type": "null"},
+              "response_content_json_pointer": {"type": "null"},
+              "additional_values_json_pointer": {"type": "null"}
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {"provider_run_status": {"const": "SUCCEEDED"}},
+            "required": ["provider_run_status"]
+          },
+          "then": {
+            "properties": {
+              "provider_error_code": {"type": "null"},
+              "provider_error_message_raw": {"type": "null"},
+              "decode_status": {"enum": ["SUCCEEDED", "FAILED"]},
+              "input_artifact": {
+                "properties": {"status": {"const": "READY"}}
+              },
+              "request_options": {
+                "properties": {
+                  "raw_request_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+                }
+              },
+              "returned_model": {"type": "string", "minLength": 1},
+              "run_id": {"type": "string", "minLength": 1},
+              "raw_response_ref": {"type": "string", "minLength": 1},
+              "raw_response_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+              "response_content_json_pointer": {"type": "string", "minLength": 1},
+              "response_content_json_text": {"type": "string", "minLength": 1}
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {"provider_run_status": {"const": "FAILED"}},
+            "required": ["provider_run_status"]
+          },
+          "then": {
+            "properties": {
+              "provider_error_code": {"type": "string", "minLength": 1},
+              "decode_status": {"const": "NOT_RUN"},
+              "decode_error_code": {"type": "null"},
+              "decoder_version": {"type": "null"},
+              "request_options": {
+                "properties": {
+                  "raw_request_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {"decode_status": {"const": "SUCCEEDED"}},
+            "required": ["decode_status"]
+          },
+          "then": {
+            "properties": {
+              "provider_run_status": {"const": "SUCCEEDED"},
+              "decoder_version": {"type": "string", "minLength": 1},
+              "response_content_json_text": {"type": "string", "minLength": 1}
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {"additional_values_json_text": {"type": "string"}},
+            "required": ["additional_values_json_text"]
+          },
+          "then": {
+            "properties": {
+              "additional_values_json_text": {"type": "string", "minLength": 1},
+              "additional_values_json_pointer": {"type": "string", "minLength": 1}
+            }
+          },
+          "else": {
+            "properties": {
+              "additional_values_json_pointer": {"type": "null"}
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "additional_values_contract_status": {"const": "NOT_OBSERVED"}
+            },
+            "required": ["additional_values_contract_status"]
+          },
+          "then": {
+            "properties": {
+              "additional_values_decoder_version": {"type": "null"}
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "additional_values_contract_status": {"const": "LIVE_OBSERVED"}
+            },
+            "required": ["additional_values_contract_status"]
+          },
+          "then": {
+            "properties": {
+              "additional_values_decoder_version": {"type": "string", "minLength": 1},
+              "additional_values_json_pointer": {"type": "string", "minLength": 1},
+              "additional_values_json_text": {"type": "string", "minLength": 1},
+              "additional_values_decoded": {"type": "object"}
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {"additional_values_json_text": {"type": "null"}},
+            "required": ["additional_values_json_text"]
+          },
+          "then": {
+            "properties": {"additional_values_decoded": {"type": "null"}}
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "additional_values_json_text": {"type": "string"},
+              "decode_status": {"const": "SUCCEEDED"}
+            },
+            "required": ["additional_values_json_text", "decode_status"]
+          },
+          "then": {
+            "properties": {"additional_values_decoded": {"type": "object"}}
+          }
+        },
+        {
+          "if": {
+            "properties": {"decode_status": {"enum": ["NOT_RUN", "FAILED"]}},
+            "required": ["decode_status"]
+          },
+          "then": {
+            "properties": {"additional_values_decoded": {"type": "null"}}
+          }
+        }
+      ]
+    },
+    "requestOptions": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "include",
+        "raw_request_sha256"
+      ],
+      "properties": {
+        "include": {
+          "type": "array",
+          "items": {"enum": ["all", "last"]},
+          "uniqueItems": true
+        },
+        "raw_request_sha256": {
+          "type": ["string", "null"],
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      }
+    },
+    "extractSettings": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source",
+        "location",
+        "location_granularity",
+        "confidence",
+        "node_config_snapshot_ref",
+        "node_config_snapshot_sha256"
+      ],
+      "properties": {
+        "source": {
+          "enum": ["DIRECT_REQUEST", "PINNED_NODE_CONFIG", "NOT_OBSERVED"]
+        },
+        "location": {"type": ["boolean", "null"]},
+        "location_granularity": {
+          "type": ["string", "null"],
+          "enum": ["element", "word", "all", null]
+        },
+        "confidence": {"type": ["boolean", "null"]},
+        "node_config_snapshot_ref": {"$ref": "#/$defs/nullableString"},
+        "node_config_snapshot_sha256": {
+          "type": ["string", "null"],
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {"source": {"const": "DIRECT_REQUEST"}},
+            "required": ["source"]
+          },
+          "then": {
+            "properties": {
+              "location": {"type": "boolean"},
+              "confidence": {"type": "boolean"},
+              "node_config_snapshot_ref": {"type": "null"},
+              "node_config_snapshot_sha256": {"type": "null"}
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {"source": {"const": "PINNED_NODE_CONFIG"}},
+            "required": ["source"]
+          },
+          "then": {
+            "properties": {
+              "location": {"type": "boolean"},
+              "confidence": {"type": "boolean"},
+              "node_config_snapshot_ref": {"type": "string", "minLength": 1},
+              "node_config_snapshot_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {"source": {"const": "NOT_OBSERVED"}},
+            "required": ["source"]
+          },
+          "then": {
+            "properties": {
+              "location": {"type": "null"},
+              "location_granularity": {"type": "null"},
+              "confidence": {"type": "null"},
+              "node_config_snapshot_ref": {"type": "null"},
+              "node_config_snapshot_sha256": {"type": "null"}
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {"location": {"const": false}},
+            "required": ["location"]
+          },
+          "then": {
+            "properties": {"location_granularity": {"type": "null"}}
+          }
+        },
+        {
+          "if": {
+            "properties": {"location": {"const": true}},
+            "required": ["location"]
+          },
+          "then": {
+            "properties": {
+              "location_granularity": {"enum": ["element", "word", "all"]}
+            }
+          }
+        }
+      ]
+    },
+    "inputArtifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "adapter_version",
+        "adapted_filename",
+        "adapted_sha256",
+        "manifest_sha256",
+        "manifest_ref",
+        "provider_file_id",
+        "chunk_set_id",
+        "chunk_id",
+        "chunk_index",
+        "chunk_count",
+        "locator_start",
+        "locator_end",
+        "page_start",
+        "page_end"
+      ],
+      "properties": {
+        "status": {"enum": ["NOT_BUILT", "READY"]},
+        "adapter_version": {"$ref": "#/$defs/nullableString"},
+        "adapted_filename": {"$ref": "#/$defs/nullableString"},
+        "adapted_sha256": {
+          "type": ["string", "null"],
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "manifest_sha256": {
+          "type": ["string", "null"],
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "manifest_ref": {"$ref": "#/$defs/nullableString"},
+        "provider_file_id": {"$ref": "#/$defs/nullableString"},
+        "chunk_set_id": {"type": "string", "minLength": 1},
+        "chunk_id": {"type": "string", "minLength": 1},
+        "chunk_index": {"type": "integer", "minimum": 1},
+        "chunk_count": {"type": "integer", "minimum": 1},
+        "locator_start": {"type": "string", "minLength": 1},
+        "locator_end": {"type": "string", "minLength": 1},
+        "page_start": {"type": ["integer", "null"], "minimum": 1},
+        "page_end": {"type": ["integer", "null"], "minimum": 1}
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {"status": {"const": "NOT_BUILT"}},
+            "required": ["status"]
+          },
+          "then": {
+            "properties": {
+              "adapter_version": {"type": "null"},
+              "adapted_filename": {"type": "null"},
+              "adapted_sha256": {"type": "null"},
+              "manifest_sha256": {"type": "null"},
+              "manifest_ref": {"type": "null"},
+              "provider_file_id": {"type": "null"},
+              "page_start": {"type": "null"},
+              "page_end": {"type": "null"}
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {"status": {"const": "READY"}},
+            "required": ["status"]
+          },
+          "then": {
+            "properties": {
+              "adapter_version": {"type": "string", "minLength": 1},
+              "adapted_filename": {"type": "string", "minLength": 1},
+              "adapted_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+              "manifest_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+              "manifest_ref": {"type": "string", "minLength": 1}
+            }
+          }
+        }
+      ]
+    },
+    "record": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "record_id",
+        "record_type",
+        "source_segment_id",
+        "source_locator",
+        "raw_fields",
+        "provider_evidence",
+        "review_status"
+      ],
+      "properties": {
+        "record_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "record_type": {
+          "enum": ["SCRIPT_FACT", "CUE_FACT"]
+        },
+        "source_segment_id": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "source_locator": {
+          "$ref": "#/$defs/sourceLocator"
+        },
+        "raw_fields": {
+          "oneOf": [
+            {"$ref": "#/$defs/scriptRawFields"},
+            {"$ref": "#/$defs/cueRawFields"}
+          ]
+        },
+        "provider_evidence": {
+          "$ref": "#/$defs/providerEvidence"
+        },
+        "review_status": {
+          "enum": ["UNREVIEWED", "REVIEWED", "REJECTED"]
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {"record_type": {"const": "SCRIPT_FACT"}},
+            "required": ["record_type"]
+          },
+          "then": {
+            "properties": {
+              "raw_fields": {"$ref": "#/$defs/scriptRawFields"},
+              "source_segment_id": {"type": "string", "minLength": 1},
+              "source_locator": {
+                "properties": {"locator_kind": {"const": "LINE_RANGE"}}
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {"record_type": {"const": "CUE_FACT"}},
+            "required": ["record_type"]
+          },
+          "then": {
+            "properties": {
+              "raw_fields": {"$ref": "#/$defs/cueRawFields"},
+              "source_segment_id": {"type": "null"},
+              "source_locator": {
+                "properties": {"locator_kind": {"const": "SHEET_CELL"}}
+              }
+            }
+          }
+        }
+      ]
+    },
+    "sourceLocator": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "locator_id",
+        "locator_start",
+        "locator_end",
+        "locator_kind",
+        "row",
+        "column",
+        "line_start",
+        "line_end",
+        "source_quote_raw"
+      ],
+      "properties": {
+        "locator_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "locator_start": {
+          "type": "string",
+          "minLength": 1
+        },
+        "locator_end": {
+          "type": "string",
+          "minLength": 1
+        },
+        "locator_kind": {
+          "enum": ["SHEET_CELL", "LINE_RANGE"]
+        },
+        "row": {
+          "type": ["integer", "null"],
+          "minimum": 1
+        },
+        "column": {
+          "type": ["integer", "null"],
+          "minimum": 1
+        },
+        "line_start": {
+          "type": ["integer", "null"],
+          "minimum": 1
+        },
+        "line_end": {
+          "type": ["integer", "null"],
+          "minimum": 1
+        },
+        "source_quote_raw": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {"locator_kind": {"const": "SHEET_CELL"}},
+            "required": ["locator_kind"]
+          },
+          "then": {
+            "properties": {
+              "locator_start": {"pattern": "^cue:sheet[0-9]+:r[0-9]{4}:c[0-9]{4}$"},
+              "locator_end": {"pattern": "^cue:sheet[0-9]+:r[0-9]{4}:c[0-9]{4}$"},
+              "row": {"type": "integer", "minimum": 1},
+              "column": {"type": "integer", "minimum": 1},
+              "line_start": {"type": "null"},
+              "line_end": {"type": "null"}
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {"locator_kind": {"const": "LINE_RANGE"}},
+            "required": ["locator_kind"]
+          },
+          "then": {
+            "properties": {
+              "locator_start": {"pattern": "^script:line:[0-9]{6}$"},
+              "locator_end": {"pattern": "^script:line:[0-9]{6}$"},
+              "row": {"type": "null"},
+              "column": {"type": "null"},
+              "line_start": {"type": "integer", "minimum": 1},
+              "line_end": {"type": "integer", "minimum": 1}
+            }
+          }
+        }
+      ]
+    },
+    "providerEvidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "location_status",
+        "confidence_status",
+        "location_quality",
+        "field_mapping_status",
+        "field_evidence",
+        "page",
+        "coordinates",
+        "word_coordinates",
+        "confidence_raw",
+        "raw_additional_values_json_text"
+      ],
+      "properties": {
+        "location_status": {
+          "enum": ["NOT_OBSERVED", "NOT_REQUESTED", "AVAILABLE", "MISSING"]
+        },
+        "confidence_status": {
+          "enum": ["NOT_OBSERVED", "NOT_REQUESTED", "AVAILABLE", "MISSING"]
+        },
+        "location_quality": {
+          "enum": [
+            "NATIVE_AND_WORD_BOX",
+            "NATIVE_AND_ELEMENT_BOX",
+            "NATIVE_ONLY"
+          ]
+        },
+        "field_mapping_status": {
+          "enum": ["NOT_OBSERVED", "NOT_REQUESTED", "AVAILABLE", "PARTIAL", "MISSING"]
+        },
+        "field_evidence": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/fieldEvidence"}
+        },
+        "page": {
+          "type": ["integer", "null"],
+          "minimum": 1
+        },
+        "coordinates": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/point"
+          },
+          "oneOf": [
+            {"maxItems": 0},
+            {"minItems": 4, "maxItems": 4}
+          ]
+        },
+        "word_coordinates": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "minItems": 4,
+            "maxItems": 4,
+            "items": {
+              "$ref": "#/$defs/point"
+            }
+          }
+        },
+        "confidence_raw": {
+          "type": ["string", "null"],
+          "enum": ["high", "low", null]
+        },
+        "raw_additional_values_json_text": {
+          "$ref": "#/$defs/nullableString"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {"location_status": {"const": "AVAILABLE"}},
+            "required": ["location_status"]
+          },
+          "then": {
+            "properties": {
+              "page": {"type": "integer", "minimum": 1},
+              "coordinates": {"minItems": 4, "maxItems": 4}
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {"location_status": {"enum": ["NOT_OBSERVED", "NOT_REQUESTED", "MISSING"]}},
+            "required": ["location_status"]
+          },
+          "then": {
+            "properties": {
+              "page": {"type": "null"},
+              "coordinates": {"maxItems": 0},
+              "word_coordinates": {"maxItems": 0},
+              "location_quality": {"const": "NATIVE_ONLY"}
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {"confidence_status": {"const": "AVAILABLE"}},
+            "required": ["confidence_status"]
+          },
+          "then": {
+            "properties": {
+              "confidence_raw": {"enum": ["high", "low"]},
+              "raw_additional_values_json_text": {"type": "string", "minLength": 1}
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {"confidence_status": {"enum": ["NOT_OBSERVED", "NOT_REQUESTED", "MISSING"]}},
+            "required": ["confidence_status"]
+          },
+          "then": {
+            "properties": {
+              "confidence_raw": {"type": "null"}
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {"location_status": {"const": "AVAILABLE"}},
+            "required": ["location_status"]
+          },
+          "then": {
+            "properties": {
+              "raw_additional_values_json_text": {"type": "string", "minLength": 1}
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "location_status": {"const": "AVAILABLE"},
+              "word_coordinates": {"minItems": 1}
+            },
+            "required": ["location_status", "word_coordinates"]
+          },
+          "then": {
+            "properties": {"location_quality": {"const": "NATIVE_AND_WORD_BOX"}}
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "location_status": {"const": "AVAILABLE"},
+              "word_coordinates": {"maxItems": 0}
+            },
+            "required": ["location_status", "word_coordinates"]
+          },
+          "then": {
+            "properties": {"location_quality": {"const": "NATIVE_AND_ELEMENT_BOX"}}
+          }
+        },
+        {
+          "if": {
+            "properties": {"field_mapping_status": {"enum": ["AVAILABLE", "PARTIAL"]}},
+            "required": ["field_mapping_status"]
+          },
+          "then": {
+            "properties": {
+              "field_evidence": {"minItems": 1},
+              "raw_additional_values_json_text": {"type": "string", "minLength": 1}
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "field_mapping_status": {"enum": ["NOT_OBSERVED", "NOT_REQUESTED", "MISSING"]}
+            },
+            "required": ["field_mapping_status"]
+          },
+          "then": {
+            "properties": {"field_evidence": {"maxItems": 0}}
+          }
+        }
+      ]
+    },
+    "fieldEvidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "field_path_json_pointer",
+        "location_status",
+        "confidence_status",
+        "page",
+        "coordinates",
+        "word_coordinates",
+        "confidence_raw"
+      ],
+      "properties": {
+        "field_path_json_pointer": {"type": "string", "pattern": "^/"},
+        "location_status": {"enum": ["NOT_REQUESTED", "AVAILABLE", "MISSING"]},
+        "confidence_status": {"enum": ["NOT_REQUESTED", "AVAILABLE", "MISSING"]},
+        "page": {"type": ["integer", "null"], "minimum": 1},
+        "coordinates": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/point"},
+          "oneOf": [{"maxItems": 0}, {"minItems": 4, "maxItems": 4}]
+        },
+        "word_coordinates": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "minItems": 4,
+            "maxItems": 4,
+            "items": {"$ref": "#/$defs/point"}
+          }
+        },
+        "confidence_raw": {
+          "type": ["string", "null"],
+          "enum": ["high", "low", null]
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {"location_status": {"const": "AVAILABLE"}},
+            "required": ["location_status"]
+          },
+          "then": {
+            "properties": {
+              "page": {"type": "integer", "minimum": 1},
+              "coordinates": {"minItems": 4, "maxItems": 4}
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {"location_status": {"enum": ["NOT_REQUESTED", "MISSING"]}},
+            "required": ["location_status"]
+          },
+          "then": {
+            "properties": {
+              "page": {"type": "null"},
+              "coordinates": {"maxItems": 0},
+              "word_coordinates": {"maxItems": 0}
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {"confidence_status": {"const": "AVAILABLE"}},
+            "required": ["confidence_status"]
+          },
+          "then": {"properties": {"confidence_raw": {"enum": ["high", "low"]}}}
+        },
+        {
+          "if": {
+            "properties": {"confidence_status": {"enum": ["NOT_REQUESTED", "MISSING"]}},
+            "required": ["confidence_status"]
+          },
+          "then": {"properties": {"confidence_raw": {"type": "null"}}}
+        }
+      ]
+    },
+    "point": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["x", "y"],
+      "properties": {
+        "x": {"type": "number", "minimum": 0, "maximum": 1},
+        "y": {"type": "number", "minimum": 0, "maximum": 1}
+      }
+    },
+    "cueRawFields": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "record_kind",
+        "department_cue_id_raw",
+        "trigger_raw",
+        "target_raw",
+        "operation_raw",
+        "state_raw",
+        "location_raw",
+        "prop_raw",
+        "costume_raw",
+        "responsible_party_raw",
+        "duration_raw",
+        "duration_qualifier_raw",
+        "unresolved_marker_raw",
+        "note_raw"
+      ],
+      "properties": {
+        "record_kind": {"type": "string"},
+        "department_cue_id_raw": {"type": "string"},
+        "trigger_raw": {"type": "string"},
+        "target_raw": {"type": "string"},
+        "operation_raw": {"type": "string"},
+        "state_raw": {"type": "string"},
+        "location_raw": {"type": "string"},
+        "prop_raw": {"type": "string"},
+        "costume_raw": {"type": "string"},
+        "responsible_party_raw": {"type": "string"},
+        "duration_raw": {"type": "string"},
+        "duration_qualifier_raw": {"type": "string"},
+        "unresolved_marker_raw": {"type": "string"},
+        "note_raw": {"type": "string"}
+      }
+    },
+    "scriptRawFields": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "fact_kind",
+        "document_label_raw",
+        "section_marker_raw",
+        "section_title_raw",
+        "speaker_raw",
+        "dialogue_line_raw",
+        "stage_direction_raw",
+        "character_or_subject_raw",
+        "performer_raw",
+        "role_or_alias_raw",
+        "movement_or_presence_raw",
+        "location_or_side_raw",
+        "prop_raw",
+        "costume_state_raw",
+        "duration_raw",
+        "cumulative_time_raw",
+        "timing_qualifier_raw",
+        "comment_marker_raw",
+        "unresolved_marker_raw"
+      ],
+      "properties": {
+        "fact_kind": {"type": "string"},
+        "document_label_raw": {"type": "string"},
+        "section_marker_raw": {"type": "string"},
+        "section_title_raw": {"type": "string"},
+        "speaker_raw": {"type": "string"},
+        "dialogue_line_raw": {"type": "string"},
+        "stage_direction_raw": {"type": "string"},
+        "character_or_subject_raw": {"type": "string"},
+        "performer_raw": {"type": "string"},
+        "role_or_alias_raw": {"type": "string"},
+        "movement_or_presence_raw": {"type": "string"},
+        "location_or_side_raw": {"type": "string"},
+        "prop_raw": {"type": "string"},
+        "costume_state_raw": {"type": "string"},
+        "duration_raw": {"type": "string"},
+        "cumulative_time_raw": {"type": "string"},
+        "timing_qualifier_raw": {"type": "string"},
+        "comment_marker_raw": {"type": "string"},
+        "unresolved_marker_raw": {"type": "string"}
+      }
+    }
+  }
+}

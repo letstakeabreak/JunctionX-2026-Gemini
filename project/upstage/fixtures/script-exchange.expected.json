@@ -1,0 +1,132 @@
+{
+  "contract_version": "standby.exchange.v1",
+  "envelope_id": "fixture_script_line_654_expected_gold",
+  "source": {
+    "document_id": "doc_sha256_fce64dced545ced45a0230cddabfb861239d0a0b83c3910720bf3179afa950a5",
+    "document_role": "SCRIPT",
+    "filename": "script-final.txt",
+    "sha256": "fce64dced545ced45a0230cddabfb861239d0a0b83c3910720bf3179afa950a5",
+    "origin": "REAL_REFERENCE",
+    "native_locator_kind": "LINE_RANGE"
+  },
+  "source_scope": {
+    "authority_status": "UNREVIEWED",
+    "segments": [
+      {
+        "source_segment_id": "seg-script-001-lines-1-688",
+        "start_locator": "script:line:000001",
+        "end_locator": "script:line:000688",
+        "segment_kind": "TIMELINE_AND_SCRIPT",
+        "label_raw": "별마루 대사량 감소ver 7/31",
+        "authority_status": "UNREVIEWED"
+      }
+    ]
+  },
+  "extraction": {
+    "provider": "UPSTAGE",
+    "surface": "INFORMATION_EXTRACT",
+    "provider_run_status": "EXPECTED_GOLD",
+    "provider_error_code": null,
+    "provider_error_message_raw": null,
+    "decode_status": "NOT_RUN",
+    "decode_error_code": null,
+    "request_schema_name": "standby_script_facts_v1",
+    "request_schema_version": "1.0.0",
+    "request_schema_sha256": "33cb2a92fd017120b9a9970a3a7d5523bc2dfe57e345a57518750a5e7407c482",
+    "request_options": {
+      "include": [],
+      "raw_request_sha256": null
+    },
+    "extract_settings": {
+      "source": "DIRECT_REQUEST",
+      "location": true,
+      "location_granularity": "all",
+      "confidence": true,
+      "node_config_snapshot_ref": null,
+      "node_config_snapshot_sha256": null
+    },
+    "additional_values_contract_status": "NOT_OBSERVED",
+    "additional_values_decoder_version": null,
+    "input_artifact": {
+      "status": "NOT_BUILT",
+      "adapter_version": null,
+      "adapted_filename": null,
+      "adapted_sha256": null,
+      "manifest_sha256": null,
+      "manifest_ref": null,
+      "provider_file_id": null,
+      "chunk_set_id": "expected-gold-script-segment-001",
+      "chunk_id": "expected-gold-script-line-654",
+      "chunk_index": 1,
+      "chunk_count": 1,
+      "locator_start": "script:line:000654",
+      "locator_end": "script:line:000654",
+      "page_start": null,
+      "page_end": null
+    },
+    "decoder_version": null,
+    "returned_model": null,
+    "agent_id": null,
+    "config_id": null,
+    "run_id": null,
+    "raw_response_ref": null,
+    "raw_response_sha256": null,
+    "response_content_json_pointer": null,
+    "response_content_json_text": "{\"script_facts\":[{\"source_locator_start_raw\":\"script:line:000654\",\"source_locator_end_raw\":\"script:line:000654\",\"fact_kind\":\"STAGE_DIRECTION\",\"document_label_raw\":\"\",\"section_marker_raw\":\"\",\"section_title_raw\":\"\",\"speaker_raw\":\"\",\"dialogue_line_raw\":\"\",\"stage_direction_raw\":\"(방 문이 벌컥 열리고, 성인 마루가 우주비행사 유니폼을 갖춰 입은 채 허둥지둥 뛰어 나온다. 한 쪽 어깨에는 이전에 아빠에게 선물로 받은 가방을 들고 나간다.)\",\"character_or_subject_raw\":\"성인 마루\",\"performer_raw\":\"\",\"role_or_alias_raw\":\"\",\"movement_or_presence_raw\":\"허둥지둥 뛰어 나온다\",\"location_or_side_raw\":\"\",\"prop_raw\":\"이전에 아빠에게 선물로 받은 가방\",\"costume_state_raw\":\"우주비행사 유니폼을 갖춰 입은 채\",\"duration_raw\":\"\",\"cumulative_time_raw\":\"\",\"timing_qualifier_raw\":\"\",\"comment_marker_raw\":\"\",\"unresolved_marker_raw\":\"\",\"source_quote_raw\":\"(방 문이 벌컥 열리고, 성인 마루가 우주비행사 유니폼을 갖춰 입은 채 허둥지둥 뛰어 나온다. 한 쪽 어깨에는 이전에 아빠에게 선물로 받은 가방을 들고 나간다.)\"}]}",
+    "additional_values_json_pointer": null,
+    "additional_values_json_text": null,
+    "additional_values_decoded": null
+  },
+  "records": [
+    {
+      "record_id": "fact_81c47e98a9d38377d3a5c09f",
+      "record_type": "SCRIPT_FACT",
+      "source_segment_id": "seg-script-001-lines-1-688",
+      "source_locator": {
+        "locator_id": "loc_81c47e98a9d38377d3a5c09f",
+        "locator_start": "script:line:000654",
+        "locator_end": "script:line:000654",
+        "locator_kind": "LINE_RANGE",
+        "row": null,
+        "column": null,
+        "line_start": 654,
+        "line_end": 654,
+        "source_quote_raw": "(방 문이 벌컥 열리고, 성인 마루가 우주비행사 유니폼을 갖춰 입은 채 허둥지둥 뛰어 나온다. 한 쪽 어깨에는 이전에 아빠에게 선물로 받은 가방을 들고 나간다.)"
+      },
+      "raw_fields": {
+        "fact_kind": "STAGE_DIRECTION",
+        "document_label_raw": "",
+        "section_marker_raw": "",
+        "section_title_raw": "",
+        "speaker_raw": "",
+        "dialogue_line_raw": "",
+        "stage_direction_raw": "(방 문이 벌컥 열리고, 성인 마루가 우주비행사 유니폼을 갖춰 입은 채 허둥지둥 뛰어 나온다. 한 쪽 어깨에는 이전에 아빠에게 선물로 받은 가방을 들고 나간다.)",
+        "character_or_subject_raw": "성인 마루",
+        "performer_raw": "",
+        "role_or_alias_raw": "",
+        "movement_or_presence_raw": "허둥지둥 뛰어 나온다",
+        "location_or_side_raw": "",
+        "prop_raw": "이전에 아빠에게 선물로 받은 가방",
+        "costume_state_raw": "우주비행사 유니폼을 갖춰 입은 채",
+        "duration_raw": "",
+        "cumulative_time_raw": "",
+        "timing_qualifier_raw": "",
+        "comment_marker_raw": "",
+        "unresolved_marker_raw": ""
+      },
+      "provider_evidence": {
+        "location_status": "NOT_OBSERVED",
+        "confidence_status": "NOT_OBSERVED",
+        "location_quality": "NATIVE_ONLY",
+        "field_mapping_status": "NOT_OBSERVED",
+        "field_evidence": [],
+        "page": null,
+        "coordinates": [],
+        "word_coordinates": [],
+        "confidence_raw": null,
+        "raw_additional_values_json_text": null
+      },
+      "review_status": "UNREVIEWED"
+    }
+  ]
+}

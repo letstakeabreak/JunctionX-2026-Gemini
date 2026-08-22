@@ -1,0 +1,84 @@
+{
+  "type": "json_schema",
+  "json_schema": {
+    "name": "standby_cue_facts_v1",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "cue_facts": {
+          "type": "array",
+          "description": "입력 cell에 명시된 서로 다른 atomic statement를 원문 순서대로 한 항목씩 기록한다. 한 cell에 on, on, off처럼 세 동작이 있으면 세 항목으로 분리한다. 배열 안에 배열을 만들지 않으며 각 항목의 모든 값은 string이다.",
+          "items": {
+            "type": "object",
+            "properties": {
+              "record_kind": {
+                "type": "string",
+                "description": "원문 statement의 종류. ACTION, TIMING, STATE, NOTE 중 가장 직접적인 하나를 사용한다. 실행 동작에 미해결 표기가 포함되어도 ACTION을 유지하고 unresolved_marker_raw에 표기를 복사한다."
+              },
+              "source_locator_raw": {
+                "type": "string",
+                "description": "입력 packet이 제공한 locator를 한 글자도 바꾸지 않고 복사한다. 형식은 cue:sheet0:r0046:c0013처럼 1-based logical CSV record와 column을 4자리로 표시한다. locator가 입력에 없으면 빈 문자열이며 새로 만들지 않는다."
+              },
+              "department_cue_id_raw": {
+                "type": "string",
+                "description": "SD 34, LX 45처럼 원문 cell에 명시된 부서 cue 번호 원문. 없으면 빈 문자열이며 section marker나 source locator로 cue ID를 생성하지 않는다."
+              },
+              "trigger_raw": {
+                "type": "string",
+                "description": "동작을 실행하게 하는 대사, 행동, 음악, 장면 또는 시점의 정확한 원문. 명시되지 않으면 빈 문자열이며 다른 줄에서 추측하지 않는다."
+              },
+              "target_raw": {
+                "type": "string",
+                "description": "배우, 배역, 장비, 파일 등 동작 대상의 정확한 원문. 여러 대상은 원문 순서를 유지한 하나의 문자열로 두고 배우명과 배역명을 통합하지 않는다."
+              },
+              "operation_raw": {
+                "type": "string",
+                "description": "on, off, play, stop, in, out, standby, 환복처럼 원문에 명시된 동작 표현. 정규화하거나 번역하지 않으며 없으면 빈 문자열이다."
+              },
+              "state_raw": {
+                "type": "string",
+                "description": "원문에 명시된 조명, 마이크, 의상, 소품 또는 장비 상태. 동작만 있고 별도 상태가 없으면 빈 문자열이다."
+              },
+              "location_raw": {
+                "type": "string",
+                "description": "cell 본문에 직접 적힌 상수, 하수, 무대 위, 덧마루 등의 위치 또는 이동 구간 원문. column header가 암시한 side를 추론해 채우지 않는다."
+              },
+              "prop_raw": {
+                "type": "string",
+                "description": "cell 본문에 직접 적힌 소품 또는 대도구 원문. 없으면 빈 문자열이며 별칭을 통합하지 않는다."
+              },
+              "costume_raw": {
+                "type": "string",
+                "description": "cell 본문에 직접 적힌 의상 또는 환복 상태 원문. 없으면 빈 문자열이며 다른 의상 cell의 내용을 합치지 않는다."
+              },
+              "responsible_party_raw": {
+                "type": "string",
+                "description": "담당자, 핸들러 또는 수행 주체가 cell에 명시된 경우의 정확한 원문. 대상과 담당자를 임의로 동일시하지 않으며 없으면 빈 문자열이다."
+              },
+              "duration_raw": {
+                "type": "string",
+                "description": "10초, 1분처럼 cell에 명시된 시간 값의 정확한 원문. 초 단위 숫자로 변환하지 않으며 없으면 빈 문자열이다."
+              },
+              "duration_qualifier_raw": {
+                "type": "string",
+                "description": "약, 이내, 전까지, 이상처럼 시간의 범위나 의미를 한정하는 정확한 원문. 명시되지 않으면 빈 문자열이며 available 또는 required 같은 의미를 추론하지 않는다."
+              },
+              "unresolved_marker_raw": {
+                "type": "string",
+                "description": "??, TBD, 미정 등 해결되지 않은 표기의 정확한 원문. 같은 statement에 반복되면 순서와 구두점을 유지한 하나의 문자열로 복사하고, 이름을 추측해 대체하지 않는다."
+              },
+              "note_raw": {
+                "type": "string",
+                "description": "괄호 주석, 주의 문구 등 다른 필드에 속하지 않는 보조 원문. 없으면 빈 문자열이며 해석이나 권고를 추가하지 않는다."
+              },
+              "source_quote_raw": {
+                "type": "string",
+                "description": "이 atomic statement를 뒷받침하는 가장 짧은 연속 cell 원문. 철자, 공백, 줄바꿈, 쉼표, 화살표, 물음표를 고치지 않고 그대로 복사한다."
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

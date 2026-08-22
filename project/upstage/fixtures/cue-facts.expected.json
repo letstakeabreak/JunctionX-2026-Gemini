@@ -1,0 +1,58 @@
+{
+  "cue_facts": [
+    {
+      "record_kind": "ACTION",
+      "source_locator_raw": "cue:sheet0:r0046:c0013",
+      "department_cue_id_raw": "",
+      "trigger_raw": "노래 시작하면",
+      "target_raw": "전체",
+      "operation_raw": "on",
+      "state_raw": "",
+      "location_raw": "",
+      "prop_raw": "",
+      "costume_raw": "",
+      "responsible_party_raw": "",
+      "duration_raw": "",
+      "duration_qualifier_raw": "",
+      "unresolved_marker_raw": "",
+      "note_raw": "",
+      "source_quote_raw": "노래 시작하면 전체 on"
+    },
+    {
+      "record_kind": "ACTION",
+      "source_locator_raw": "cue:sheet0:r0046:c0013",
+      "department_cue_id_raw": "",
+      "trigger_raw": "중간 기자회견 장면",
+      "target_raw": "혜원,??,??",
+      "operation_raw": "on",
+      "state_raw": "",
+      "location_raw": "",
+      "prop_raw": "",
+      "costume_raw": "",
+      "responsible_party_raw": "",
+      "duration_raw": "",
+      "duration_qualifier_raw": "",
+      "unresolved_marker_raw": "??,??",
+      "note_raw": "",
+      "source_quote_raw": "중간 기자회견 장면\n-> 혜원,??,?? on"
+    },
+    {
+      "record_kind": "ACTION",
+      "source_locator_raw": "cue:sheet0:r0046:c0013",
+      "department_cue_id_raw": "",
+      "trigger_raw": "노래 끝나면",
+      "target_raw": "전체",
+      "operation_raw": "off",
+      "state_raw": "",
+      "location_raw": "",
+      "prop_raw": "",
+      "costume_raw": "",
+      "responsible_party_raw": "",
+      "duration_raw": "",
+      "duration_qualifier_raw": "",
+      "unresolved_marker_raw": "",
+      "note_raw": "",
+      "source_quote_raw": "노래 끝나면 전체 off"
+    }
+  ]
+}

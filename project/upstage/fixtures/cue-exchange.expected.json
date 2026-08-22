@@ -1,0 +1,208 @@
+{
+  "contract_version": "standby.exchange.v1",
+  "envelope_id": "fixture_cue_n12_mic_expected_gold",
+  "source": {
+    "document_id": "doc_sha256_8c7efcdd9ea7d98b2b035d0d702d2c919a8f547ed65cff9bf6b8ff4ebbb16039",
+    "document_role": "MASTER_CUE",
+    "filename": "reference-cuesheet.csv",
+    "sha256": "8c7efcdd9ea7d98b2b035d0d702d2c919a8f547ed65cff9bf6b8ff4ebbb16039",
+    "origin": "REAL_REFERENCE",
+    "native_locator_kind": "SHEET_CELL"
+  },
+  "source_scope": {
+    "authority_status": "NOT_APPLICABLE",
+    "segments": []
+  },
+  "extraction": {
+    "provider": "UPSTAGE",
+    "surface": "INFORMATION_EXTRACT",
+    "provider_run_status": "EXPECTED_GOLD",
+    "provider_error_code": null,
+    "provider_error_message_raw": null,
+    "decode_status": "NOT_RUN",
+    "decode_error_code": null,
+    "request_schema_name": "standby_cue_facts_v1",
+    "request_schema_version": "1.0.0",
+    "request_schema_sha256": "26aafd33a38d55ccf5e2b6af652abe1cac9ac1d27f527cdea68a4ce0a594a566",
+    "request_options": {
+      "include": [],
+      "raw_request_sha256": null
+    },
+    "extract_settings": {
+      "source": "DIRECT_REQUEST",
+      "location": true,
+      "location_granularity": "all",
+      "confidence": true,
+      "node_config_snapshot_ref": null,
+      "node_config_snapshot_sha256": null
+    },
+    "additional_values_contract_status": "NOT_OBSERVED",
+    "additional_values_decoder_version": null,
+    "input_artifact": {
+      "status": "NOT_BUILT",
+      "adapter_version": null,
+      "adapted_filename": null,
+      "adapted_sha256": null,
+      "manifest_sha256": null,
+      "manifest_ref": null,
+      "provider_file_id": null,
+      "chunk_set_id": "expected-gold-cue-n12",
+      "chunk_id": "expected-gold-n12-mic-001",
+      "chunk_index": 1,
+      "chunk_count": 1,
+      "locator_start": "cue:sheet0:r0046:c0013",
+      "locator_end": "cue:sheet0:r0046:c0013",
+      "page_start": null,
+      "page_end": null
+    },
+    "decoder_version": null,
+    "returned_model": null,
+    "agent_id": null,
+    "config_id": null,
+    "run_id": null,
+    "raw_response_ref": null,
+    "raw_response_sha256": null,
+    "response_content_json_pointer": null,
+    "response_content_json_text": "{\"cue_facts\":[{\"record_kind\":\"ACTION\",\"source_locator_raw\":\"cue:sheet0:r0046:c0013\",\"department_cue_id_raw\":\"\",\"trigger_raw\":\"노래 시작하면\",\"target_raw\":\"전체\",\"operation_raw\":\"on\",\"state_raw\":\"\",\"location_raw\":\"\",\"prop_raw\":\"\",\"costume_raw\":\"\",\"responsible_party_raw\":\"\",\"duration_raw\":\"\",\"duration_qualifier_raw\":\"\",\"unresolved_marker_raw\":\"\",\"note_raw\":\"\",\"source_quote_raw\":\"노래 시작하면 전체 on\"},{\"record_kind\":\"ACTION\",\"source_locator_raw\":\"cue:sheet0:r0046:c0013\",\"department_cue_id_raw\":\"\",\"trigger_raw\":\"중간 기자회견 장면\",\"target_raw\":\"혜원,??,??\",\"operation_raw\":\"on\",\"state_raw\":\"\",\"location_raw\":\"\",\"prop_raw\":\"\",\"costume_raw\":\"\",\"responsible_party_raw\":\"\",\"duration_raw\":\"\",\"duration_qualifier_raw\":\"\",\"unresolved_marker_raw\":\"??,??\",\"note_raw\":\"\",\"source_quote_raw\":\"중간 기자회견 장면\\n-> 혜원,??,?? on\"},{\"record_kind\":\"ACTION\",\"source_locator_raw\":\"cue:sheet0:r0046:c0013\",\"department_cue_id_raw\":\"\",\"trigger_raw\":\"노래 끝나면\",\"target_raw\":\"전체\",\"operation_raw\":\"off\",\"state_raw\":\"\",\"location_raw\":\"\",\"prop_raw\":\"\",\"costume_raw\":\"\",\"responsible_party_raw\":\"\",\"duration_raw\":\"\",\"duration_qualifier_raw\":\"\",\"unresolved_marker_raw\":\"\",\"note_raw\":\"\",\"source_quote_raw\":\"노래 끝나면 전체 off\"}]}",
+    "additional_values_json_pointer": null,
+    "additional_values_json_text": null,
+    "additional_values_decoded": null
+  },
+  "records": [
+    {
+      "record_id": "fact_939c7c255ee467c929ff6146",
+      "record_type": "CUE_FACT",
+      "source_segment_id": null,
+      "source_locator": {
+        "locator_id": "loc_939c7c255ee467c929ff6146",
+        "locator_start": "cue:sheet0:r0046:c0013",
+        "locator_end": "cue:sheet0:r0046:c0013",
+        "locator_kind": "SHEET_CELL",
+        "row": 46,
+        "column": 13,
+        "line_start": null,
+        "line_end": null,
+        "source_quote_raw": "노래 시작하면 전체 on"
+      },
+      "raw_fields": {
+        "record_kind": "ACTION",
+        "department_cue_id_raw": "",
+        "trigger_raw": "노래 시작하면",
+        "target_raw": "전체",
+        "operation_raw": "on",
+        "state_raw": "",
+        "location_raw": "",
+        "prop_raw": "",
+        "costume_raw": "",
+        "responsible_party_raw": "",
+        "duration_raw": "",
+        "duration_qualifier_raw": "",
+        "unresolved_marker_raw": "",
+        "note_raw": ""
+      },
+      "provider_evidence": {
+        "location_status": "NOT_OBSERVED",
+        "confidence_status": "NOT_OBSERVED",
+        "location_quality": "NATIVE_ONLY",
+        "field_mapping_status": "NOT_OBSERVED",
+        "field_evidence": [],
+        "page": null,
+        "coordinates": [],
+        "word_coordinates": [],
+        "confidence_raw": null,
+        "raw_additional_values_json_text": null
+      },
+      "review_status": "UNREVIEWED"
+    },
+    {
+      "record_id": "fact_9d4c9aff13407300b9ce2769",
+      "record_type": "CUE_FACT",
+      "source_segment_id": null,
+      "source_locator": {
+        "locator_id": "loc_9d4c9aff13407300b9ce2769",
+        "locator_start": "cue:sheet0:r0046:c0013",
+        "locator_end": "cue:sheet0:r0046:c0013",
+        "locator_kind": "SHEET_CELL",
+        "row": 46,
+        "column": 13,
+        "line_start": null,
+        "line_end": null,
+        "source_quote_raw": "중간 기자회견 장면\n-> 혜원,??,?? on"
+      },
+      "raw_fields": {
+        "record_kind": "ACTION",
+        "department_cue_id_raw": "",
+        "trigger_raw": "중간 기자회견 장면",
+        "target_raw": "혜원,??,??",
+        "operation_raw": "on",
+        "state_raw": "",
+        "location_raw": "",
+        "prop_raw": "",
+        "costume_raw": "",
+        "responsible_party_raw": "",
+        "duration_raw": "",
+        "duration_qualifier_raw": "",
+        "unresolved_marker_raw": "??,??",
+        "note_raw": ""
+      },
+      "provider_evidence": {
+        "location_status": "NOT_OBSERVED",
+        "confidence_status": "NOT_OBSERVED",
+        "location_quality": "NATIVE_ONLY",
+        "field_mapping_status": "NOT_OBSERVED",
+        "field_evidence": [],
+        "page": null,
+        "coordinates": [],
+        "word_coordinates": [],
+        "confidence_raw": null,
+        "raw_additional_values_json_text": null
+      },
+      "review_status": "UNREVIEWED"
+    },
+    {
+      "record_id": "fact_e308b2f8426bc8bb4c38e61a",
+      "record_type": "CUE_FACT",
+      "source_segment_id": null,
+      "source_locator": {
+        "locator_id": "loc_e308b2f8426bc8bb4c38e61a",
+        "locator_start": "cue:sheet0:r0046:c0013",
+        "locator_end": "cue:sheet0:r0046:c0013",
+        "locator_kind": "SHEET_CELL",
+        "row": 46,
+        "column": 13,
+        "line_start": null,
+        "line_end": null,
+        "source_quote_raw": "노래 끝나면 전체 off"
+      },
+      "raw_fields": {
+        "record_kind": "ACTION",
+        "department_cue_id_raw": "",
+        "trigger_raw": "노래 끝나면",
+        "target_raw": "전체",
+        "operation_raw": "off",
+        "state_raw": "",
+        "location_raw": "",
+        "prop_raw": "",
+        "costume_raw": "",
+        "responsible_party_raw": "",
+        "duration_raw": "",
+        "duration_qualifier_raw": "",
+        "unresolved_marker_raw": "",
+        "note_raw": ""
+      },
+      "provider_evidence": {
+        "location_status": "NOT_OBSERVED",
+        "confidence_status": "NOT_OBSERVED",
+        "location_quality": "NATIVE_ONLY",
+        "field_mapping_status": "NOT_OBSERVED",
+        "field_evidence": [],
+        "page": null,
+        "coordinates": [],
+        "word_coordinates": [],
+        "confidence_raw": null,
+        "raw_additional_values_json_text": null
+      },
+      "review_status": "UNREVIEWED"
+    }
+  ]
+}

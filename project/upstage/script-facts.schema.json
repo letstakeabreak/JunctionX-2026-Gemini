@@ -1,0 +1,108 @@
+{
+  "type": "json_schema",
+  "json_schema": {
+    "name": "standby_script_facts_v1",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "script_facts": {
+          "type": "array",
+          "description": "입력 manifest에 명시된 하나의 대본 segment에서 읽은 원문 기반 fact 목록. segment 선택·authority는 이 model output이 아니라 앱 manifest가 소유한다. 각 item은 가장 짧은 연속 원문 단위 하나를 나타내며 서로 다른 revision이나 segment를 병합하지 않는다. 문서에 없는 값은 빈 문자열로 둔다.",
+          "items": {
+            "type": "object",
+            "properties": {
+              "source_locator_start_raw": {
+                "type": "string",
+                "description": "입력 packet에 명시적으로 붙은 1-based source line locator token을 한 글자도 바꾸지 않고 복사한다. 예: script:line:000035. locator가 제공되지 않았으면 빈 문자열이며 계산하거나 생성하지 않는다."
+              },
+              "source_locator_end_raw": {
+                "type": "string",
+                "description": "입력 packet에 명시적으로 붙은 1-based source line locator token의 끝값을 한 글자도 바꾸지 않고 복사한다. 한 줄 fact이면 시작 token과 같고, locator가 제공되지 않았으면 빈 문자열이다."
+              },
+              "fact_kind": {
+                "type": "string",
+                "description": "이 원문 단위의 주된 종류. DOCUMENT_METADATA, CHARACTER_DEFINITION, SECTION_HEADING, DECLARED_TIMING, DIALOGUE, STAGE_DIRECTION, PRODUCTION_NOTE, COMMENT_FOOTNOTE, UNCLASSIFIED 중 하나를 사용한다."
+              },
+              "document_label_raw": {
+                "type": "string",
+                "description": "문서에 직접 적힌 제목, revision, 탭 또는 block label 원문. 다른 줄에서 추측하거나 최신본을 선택하지 않는다."
+              },
+              "section_marker_raw": {
+                "type": "string",
+                "description": "S1, S#1, N7처럼 이 원문 단위 자체에 직접 적힌 section marker 원문. 앞선 heading을 상속하지 않으며 없으면 빈 문자열이다."
+              },
+              "section_title_raw": {
+                "type": "string",
+                "description": "section marker 뒤에 직접 적힌 장면, 넘버 또는 구간 제목 원문. 요약하거나 다른 revision의 제목으로 교체하지 않는다."
+              },
+              "speaker_raw": {
+                "type": "string",
+                "description": "대사 줄 앞에 직접 적힌 화자 표기 원문. 배우명, 배역명, 관계명을 임의로 통합하거나 맞춤법을 고치지 않는다."
+              },
+              "dialogue_line_raw": {
+                "type": "string",
+                "description": "화자 표기 뒤의 대사와 그 줄에 섞인 괄호 지시를 원문 순서대로 보존한 문자열. 짧은 anchor로 재작성하거나 요약하지 않는다."
+              },
+              "stage_direction_raw": {
+                "type": "string",
+                "description": "행동, 표정, 조명, 음향, 이동 등 무대 지시를 담은 연속 원문. 지시가 없으면 빈 문자열이다."
+              },
+              "character_or_subject_raw": {
+                "type": "string",
+                "description": "지시 또는 사실의 인물이나 대상 표기 원문. 성인 마루, 우현, 별 1처럼 적힌 그대로 두며 canonical entity를 만들지 않는다."
+              },
+              "performer_raw": {
+                "type": "string",
+                "description": "현서, 유림처럼 문서에 직접 적힌 performer 또는 cast 이름 원문. character와 임의로 연결하지 않는다."
+              },
+              "role_or_alias_raw": {
+                "type": "string",
+                "description": "아빠, 엄마, 기자1처럼 문서에 직접 적힌 관계명, 역할명 또는 alias 원문. canonical 이름으로 치환하지 않는다."
+              },
+              "movement_or_presence_raw": {
+                "type": "string",
+                "description": "입장, 퇴장, 들어감, 무대대기처럼 인물의 이동 또는 존재 상태를 나타내는 정확한 원문 구절. ENTER나 EXIT 의미를 추론해 정규화하지 않는다."
+              },
+              "location_or_side_raw": {
+                "type": "string",
+                "description": "상수, 하수, 센터, 방처럼 문서에 적힌 위치 또는 방향 원문. stage zone ID를 만들거나 동의어를 통합하지 않는다."
+              },
+              "prop_raw": {
+                "type": "string",
+                "description": "가방, 수건, 동화책처럼 문서에 직접 적힌 소품 원문. 소유, 이동, handoff를 추측하지 않는다."
+              },
+              "costume_state_raw": {
+                "type": "string",
+                "description": "우주비행사 유니폼 착용처럼 문서에 직접 적힌 의상 상태 원문. performer 또는 다음 장면 상태를 추측하지 않는다."
+              },
+              "duration_raw": {
+                "type": "string",
+                "description": "2분32초, 분50초처럼 문서에 적힌 구간 길이 원문. 불완전한 숫자를 보완하거나 초 단위로 변환하지 않는다."
+              },
+              "cumulative_time_raw": {
+                "type": "string",
+                "description": "5분28초, 분 초처럼 문서에 적힌 누적 시간 원문. 이전 duration과 산술적으로 맞지 않아도 고치지 않는다."
+              },
+              "timing_qualifier_raw": {
+                "type": "string",
+                "description": "약, 최소, 목표처럼 시간의 의미를 제한하는 정확한 원문. 없으면 빈 문자열이다."
+              },
+              "comment_marker_raw": {
+                "type": "string",
+                "description": "[a], [fn], [hc]처럼 문서에 직접 적힌 comment 또는 footnote marker 원문. cue ID로 해석하지 않는다."
+              },
+              "unresolved_marker_raw": {
+                "type": "string",
+                "description": "??, 미정, 빠진 시간 자리처럼 해결되지 않은 부분을 포함하는 정확한 원문. 빈 값을 추측해 채우지 않는다."
+              },
+              "source_quote_raw": {
+                "type": "string",
+                "description": "이 fact를 뒷받침하는 가장 짧은 연속 원문. 철자, 공백, 문장부호, 괄호를 고치거나 이어 붙이지 않는다."
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
