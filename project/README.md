@@ -7,7 +7,7 @@ JunctionX Korea 2026 · Upstage 트랙 "Automate Paperwork"
 
 > 무대 위는 초 단위로 설계돼 있는데, 그걸 관리하는 건 **병합된 셀**이다.
 >
-> 현재 제품 정의와 48시간 MVP의 source of truth는 [PRD.md](PRD.md)다. 마스터–부서 사본 비교는 전체 제품 안의 revision-consistency 모듈일 뿐, 제품 본체가 아니다.
+> 현재 제품 정의와 48시간 MVP의 source of truth는 [PRD_CLAUDE.md](PRD_CLAUDE.md)다. 마스터–부서 사본 비교는 전체 제품 안의 revision-consistency 모듈일 뿐, 제품 본체가 아니다.
 
 ---
 
@@ -15,8 +15,11 @@ JunctionX Korea 2026 · Upstage 트랙 "Automate Paperwork"
 
 | 파일 | 내용 |
 |---|---|
-| [PRD.md](PRD.md) | **현재 제품 정의 · 3입력 검증 모델 · 요구사항 · MVP acceptance** |
+| [PRD_CLAUDE.md](PRD_CLAUDE.md) | **현재 제품 정의 · 3입력 검증 모델 · 요구사항 · MVP acceptance** |
 | **README.md** (이 파일) | 제품 정의 · **기대효과** · 규칙 · 노드 매핑 · 데모 · 분담 |
+| [BACKEND_ARCHITECTURE.md](BACKEND_ARCHITECTURE.md) | **배포 토폴로지 · 서비스 연결 · Mermaid · 보안 경계 · 구현 순서** |
+| [`../server/README.md`](../server/README.md) | **실행 가능한 backend MVP · API 흐름 · 현재 구현 한계** |
+| [`../contracts/README.md`](../contracts/README.md) | **서비스 간 strict JSON Schema 계약** |
 | [UPSTAGE_PLAYBOOK.md](UPSTAGE_PLAYBOOK.md) | **공식 사양 기반 Upstage 적용법 · 데이터 계약 · smoke test · 48시간 순서** |
 | [JSON_CONTRACT.md](JSON_CONTRACT.md) | **reference source 계측 · locator packet · Upstage flat JSON · strict exchange envelope** |
 | [FINDINGS.md](FINDINGS.md) | 초기 린터 탐색 결과 — **감사 주의 포함, ground truth 아님** |
