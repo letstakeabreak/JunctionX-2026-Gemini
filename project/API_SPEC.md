@@ -10,6 +10,10 @@
 | API 기준 경로 | `/v1` |
 | 핵심 원칙 | Evidence first, immutable sources, human authority, deterministic verification, Final naming is gated |
 
+> **구현 상태 주의:** 이 문서는 장기 목표 API 계약이며 현재 서버의 endpoint 정본이 아니다.
+> 현재 실제 구현 범위는 [FEATURE_SPEC_CURRENT.md](FEATURE_SPEC_CURRENT.md)와
+> [`../server/README.md`](../server/README.md)를 따른다.
+
 이 문서는 STANDBY의 두 Lo-Fi 화면을 실제 구현 가능한 API 계약으로 변환한다. 문서와 OpenAPI가 충돌하면 이 문서의 상태 전이·불변조건을 우선하며, 스키마와 경로의 문법은 `openapi.yaml`을 따른다.
 
 ---
