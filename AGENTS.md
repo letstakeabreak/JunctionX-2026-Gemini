@@ -82,7 +82,8 @@ npm run build      # tsc -b && vite build
 
 5단계 헤더 · 사이드바 · 좌측 finding 목록 · PROPOSAL Option A/B/C · 병렬 3버튼 ·
 별도 Final 2D 화면 · revision lineage 패널 · EXPORT LOG · Zoom 슬라이더 ·
-Ctrl+F 검색 · JSON raw 뷰 · 실제 건축 도면 · 라이트모드 토글
+Ctrl+F 검색 · JSON raw 뷰 · 실제 건축 도면 · 라이트모드 토글 ·
+**시뮬레이터 드래그앤드롭** · **노드 이동 애니메이션**
 
 ---
 
@@ -90,7 +91,7 @@ Ctrl+F 검색 · JSON raw 뷰 · 실제 건축 도면 · 라이트모드 토글
 
 | # | 작업 | 파일 | 비고 |
 |---|---|---|---|
-| **P0** | **이벤트별 무대 상태** | `standby-data.ts` `WorkspaceScreen` | 현재 `BASE_ENTITIES` 고정. E1~E8 각각의 zone 배치가 필요 |
+| **P0** | **이벤트별 무대 스냅샷** | `standby-data.ts` `StageSimulator` | 현재 `BASE_ENTITIES` 고정. 아래 모델 참조 |
 | **P0** | **재생 동기화** | `WorkspaceScreen` | 재생 시 타임라인·큐시트 스크롤·무대가 함께 진행 |
 | P1 | 이벤트 **더블클릭 = 해당 셀로 이동** | `TimelinePanel` | 단일 클릭은 팝업 유지. `이 위치로 이동` 버튼도 유지 |
 | P1 | 큐시트가 **위 패널일 때 팝업 유지** | `WorkspaceScreen` | 아래가 무대면 닫을 이유가 없다. 패널 전환 강제 금지 |
@@ -102,6 +103,38 @@ Ctrl+F 검색 · JSON raw 뷰 · 실제 건축 도면 · 라이트모드 토글
 | P2 | 파급효과 표시 | `WorkspaceScreen` | 셀 편집 시 영향받는 이벤트 카드에 표시 |
 
 **P0 두 개가 데모의 핵심**이다. 이벤트를 눌렀을 때 무대가 안 바뀌면 "시뮬레이터"라고 부를 수 없다.
+
+### 이벤트별 무대 스냅샷 — P0 사양
+
+**애니메이션이 아니라 정적 스냅샷이다.** 연출자가 알고 싶은 것은 결과 상태이지 이동 과정이 아니다.
+
+```ts
+type Transition = "ENTER" | "EXIT";
+type EntityStateAtEvent = { zone: Zone; transition?: Transition };
+type StageSnapshots = Record<EventId, Record<EntityId, EntityStateAtEvent>>;
+```
+
+| `transition` | 표시 |
+|---|---|
+| `ENTER` | 무대 쪽(안쪽) 화살표 + `등장` |
+| `EXIT` | 윙 쪽(바깥쪽) 화살표 + `퇴장` |
+| 없음 | 화살표 없음 — 그냥 그 자리에 있다 |
+
+**왜 transition이 필요한가**: E6에서 퇴장했어도 E7·E8·E9에서 똑같이 윙에 서 있다.
+정적 스냅샷만으로는 *언제* 퇴장했는지 알 수 없다.
+
+**화살표 방향은 `무대 쪽 / 윙 쪽`으로 정의한다.** 좌/우 절대방향으로 정의하면
+상수(화면 왼쪽)와 하수(오른쪽)에서 서로 뒤집혀 혼동한다.
+
+⚠️ 등장=초록/퇴장=빨강은 verdict 색과 충돌한다. **주 신호는 방향과 텍스트 라벨**이고
+색을 쓴다면 verdict 팔레트와 구분되는 톤을 쓴다.
+
+### 시뮬레이터는 읽기 전용이다
+
+드래그앤드롭 편집은 폐기했다. E6에서 퇴장한 배우를 E9에서 끌어오면 **새 이벤트를 만드는 행위**가 되고,
+트리거도 이벤트 번호도 정할 수 없다. 편집 경로가 둘이 되면 원본 불변 모델이 깨진다.
+
+> **편집은 큐시트에서만. 시뮬레이터는 결과를 비추는 거울이다.**
 
 ### XLSX export가 왜 P1인가
 
