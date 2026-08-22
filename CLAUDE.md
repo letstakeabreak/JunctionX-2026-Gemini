@@ -96,10 +96,32 @@ Ctrl+F 검색 · JSON raw 뷰 · 실제 건축 도면 · 라이트모드 토글
 | P1 | 이벤트 **더블클릭 = 해당 셀로 이동** | `TimelinePanel` | 단일 클릭은 팝업 유지. `이 위치로 이동` 버튼도 유지 |
 | P1 | 큐시트가 **위 패널일 때 팝업 유지** | `WorkspaceScreen` | 아래가 무대면 닫을 이유가 없다. 패널 전환 강제 금지 |
 | P1 | 엔티티 **라벨 인라인 편집** | `StageSimulator` | 클릭 → input, Enter 커밋, Esc 취소 |
+| **P1** | **XLSX export** | `CueSheetPanel` | **받은 엑셀을 그대로 돌려준다.** 아래 참조 |
 | P2 | 히스토리 **복원** 명시 | `CueSheetPanel` | 현재 로드는 되나 "복원" 의미가 UI에 드러나지 않음 |
+| P2 | XLSX import | `InputScreen` | dropzone은 이미 있다. 파싱은 Upstage 경로 |
+| P2 | 재검증(refresh) 버튼 | `WorkspaceScreen` | 원본 hash 비교 후 바뀐 문서만 재추출 |
 | P2 | 파급효과 표시 | `WorkspaceScreen` | 셀 편집 시 영향받는 이벤트 카드에 표시 |
 
 **P0 두 개가 데모의 핵심**이다. 이벤트를 눌렀을 때 무대가 안 바뀌면 "시뮬레이터"라고 부를 수 없다.
+
+### XLSX export가 왜 P1인가
+
+`DOMAIN.md`는 경쟁 도구가 전부 **자기 툴로 이주**를 요구한다고 진단했고, STANDBY의 차별점을
+*"아무것도 안 바꿔도 됨"*으로 잡았다. 그런데 지금 앱은 엑셀을 **먹기만 하고 돌려주지 않는다.**
+돌려주지 못하면 STANDBY가 종착지가 되고, 종착지가 된다는 건 곧 이주 요구다.
+
+export 규칙 — 자세한 계약은 `project/PRD_CLAUDE.md` §10:
+
+1. 원본 파일과 hash는 변하지 않는다. export는 **항상 새 파일**
+2. 사람이 고친 셀만 바뀐다. 열 구성·시트 이름·서식을 재배치하지 않는다
+3. **verdict를 문서에 쓰지 않는다.** 큐시트는 실행 문서지 검증 리포트가 아니다
+4. export → import 왕복 시 같은 fact가 나와야 한다
+
+### Refresh 관련 불변식 (깨면 원칙이 무너진다)
+
+- **hash가 그대로면 Upstage를 재호출하지 않는다.** 크레딧이 refresh 빈도만큼 소모된다
+- **refresh가 만든 새 fact는 자동으로 판정에 들어가지 않는다.** `UNREVIEWED`로 대기하고
+  사람이 승인해야 반영된다. 승인 전에는 `INSUFFICIENT_EVIDENCE`로 남는 것이 올바른 동작이다
 
 ---
 
