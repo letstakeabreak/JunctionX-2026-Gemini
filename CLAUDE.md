@@ -6,6 +6,21 @@ JunctionX Korea 2026 · Upstage 트랙. **Claude Code와 Codex가 같은 저장�
 
 ---
 
+## 0. 정본은 로컬이다 (2026-08-22 확정)
+
+**Lovable 프로젝트는 동결했다.** 모든 작업은 이 저장소의 `app/`에서 한다.
+
+| | |
+|---|---|
+| 정본 | 이 저장소 `app/` — 표준 Vite SPA, 의존성 11개 |
+| 배포 | https://standby-junctionx.vercel.app (공개) |
+| Lovable | `468bba52` 커밋 `2b488673`에서 동결. **되돌아가지 마라** |
+
+Lovable 프로젝트는 `@lovable.dev/vite-tanstack-config`(Nitro + Cloudflare 타깃) 의존이라
+로컬·Vercel로 다시 내릴 수 없다. 거기에 변경을 보내면 크레딧을 쓰면서 세 번째 상태를 만든다.
+
+---
+
 ## 1. 무엇을 만들고 있나
 
 **STANDBY** — 대본·큐시트·무대 사양 세 문서를 한 공연 순서로 대조해, 시간·동선·상태·큐가
