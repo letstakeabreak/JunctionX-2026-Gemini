@@ -14,3 +14,10 @@ portfolio/
 briefing/
 project/data/
 *.pdf
+
+# 파트너 참고자료 — 코드도 팀 산출물도 아님 (11MB 바이너리)
+references/
+
+# 폐기된 Stitch Lo-Fi 산출물 — DESIGN.md에서 폐기 명시
+Lo-Fi/*/screen.png
+Lo-Fi/*/code.html
