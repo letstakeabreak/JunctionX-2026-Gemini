@@ -7,3 +7,10 @@ dist
 .env.*
 !.env.example
 tsconfig.tsbuildinfo
+
+# 공개 저장소 금지 — CONTRIBUTING.md
+application/
+portfolio/
+briefing/
+project/data/
+*.pdf
