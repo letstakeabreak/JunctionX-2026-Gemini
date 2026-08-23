@@ -70,6 +70,7 @@ UUID 세션으로 case 소유권을 분리한다. 이 값은 사용자 신원을
 | 서체 | **구현** | 본문·라벨은 시스템 기본 서체, STANDBY 로고·추출 loading wordmark만 JetBrains Mono |
 | 데이터 영속성 | **기반 및 인터페이스 완료** | PostgreSQL 16+/Supabase 7개 핵심 테이블 DDL(`001_initial_schema.sql`), `StateStore` 공통 인터페이스, 불변 해시/Append-only Revision 검증 테스트(`persistence.test.ts`) 완료 |
 | 실제 reference fidelity | **정량 평가 슈트 완료** | 15+ Gold Fact 대조, 100% Precision 및 결측 시 fail-closed `INSUFFICIENT_EVIDENCE` 기권 정량 검증(`reference-fidelity.test.ts`) 통과 |
+| 보안 파일 수명주기 & 감사 추적 (P1-C) | **구현 완료** | OOXML 매크로/암호화/Zip Bomb 차단(`source-file.ts`), SHA-256 해시 마스킹 감사 로그(`audit.ts`), Purge 수명주기 DDL(`003_secure_lifecycle_and_audit.sql`), `secure-operations.test.ts` 100% 통과 |
 | XLSX 왕복·refresh | **구현·운영 배포** | 원본 bytes에서 수정 셀과 명시적 이벤트 행 추가·삭제만 적용해 새 XLSX를 만든다. 시트·서식·빈 행/열은 보존하며 동일 hash는 Upstage를 재호출하지 않고, 변경 hash의 새 fact는 UNREVIEWED로 되돌린다. XLSX 생성 실패 시 현재 revision 행을 실제 UTF-8 CSV로 내려받은 뒤에만 `Export Complete · CSV fallback`을 표시 |
 | 표준 실행본 export | **구현·운영 배포** | 같은 revision을 EVENT·TRIGGER·DEPARTMENT·ACTION·CAST·LOCATION·NOTES 단일 양식으로 매핑하고, 누락값은 빈칸으로 둔 Word `.docx`와 브라우저 PDF 인쇄본을 제공한다 |
 | RAW JSON 표준 CSV export | **구현** | 로컬 Editor의 현재 cue/action에 자동·수동 연결된 Script의 kind·speaker·text·locator를 합쳐 UTF-8 CSV로 내보낸다. 미연결 Script 구간과 verdict는 넣지 않는다 |

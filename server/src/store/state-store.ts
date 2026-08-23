@@ -1,4 +1,5 @@
 import type { WorkspaceRole } from "../auth/jwt.js";
+import type { AuditEvent } from "../domain/audit.js";
 import type {
   CaseRecord,
   CellPatch,
@@ -29,7 +30,7 @@ export type WorkspaceMemberRecord = {
 };
 
 /**
- * P1-A / P1-B StateStore Interface
+ * P1-A / P1-B / P1-C StateStore Interface
  * 
  * InMemoryStore 및 차세대 PostgreSQL Store가 공통으로 구현하는
  * 도메인 상태 저장소 인터페이스입니다.
@@ -46,7 +47,7 @@ export interface StateStore {
   getWorkspaceMembers(workspaceId: string, actorId: string): WorkspaceMemberRecord[];
   getWorkspaceRole(workspaceId: string, userId: string): WorkspaceRole | null;
 
-  // 3. Source Ingestion
+  // 3. Source Ingestion & Secure Lifecycle (P1-C)
   uploadSource(input: {
     caseId: string;
     role: SourceRole;
@@ -55,6 +56,7 @@ export interface StateStore {
     mediaType: string | null;
     originalFilename: string | null;
   }): SourceVersion;
+  purgeSource(caseId: string, role: SourceRole, actorId: string): void;
 
   // 4. Extraction & Operation Lifecycle
   startExtraction(caseId: string, adapter?: any): Operation;
@@ -79,4 +81,7 @@ export interface StateStore {
     rowOperations?: CueRowOperation[];
   }): CueRevision;
   listCueRevisions(caseId: string): CueRevision[];
+
+  // 8. Audit & Observability (P1-C)
+  getAuditLogs(workspaceId: string, actorId: string): AuditEvent[];
 }

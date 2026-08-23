@@ -49,6 +49,7 @@ import type { ScriptProjectionProvider } from "../providers/script-projection-pr
 import type { WorkspaceRole } from "../auth/jwt.js";
 import { hasMinimumRole } from "../auth/jwt.js";
 import type { StateStore, WorkspaceMemberRecord } from "./state-store.js";
+import { AuditLogger, type AuditEvent } from "../domain/audit.js";
 
 const ROLES: SourceRole[] = ["SCRIPT", "MASTER_CUE", "STAGE_SPEC"];
 const REQUIRED_SOURCE_ROLES: SourceRole[] = ["MASTER_CUE"];
@@ -101,6 +102,7 @@ export class InMemoryStore implements StateStore {
   private readonly scriptProjectionOwnerIds = new Map<string, string>();
   private readonly caseScriptProjectionIds = new Map<string, string>();
   private readonly idempotency = new Map<string, IdempotencyRecord>();
+  private readonly auditLogger = new AuditLogger();
   private sequence = 0;
 
   constructor(
@@ -237,6 +239,39 @@ export class InMemoryStore implements StateStore {
     if (record.owner_id !== actorId) {
       throw new DomainError(404, "RESOURCE_NOT_FOUND", "Case not found.");
     }
+  }
+
+  purgeSource(caseId: string, role: SourceRole, actorId: string): void {
+    this.assertCaseAccess(caseId, actorId, "OWNER");
+    const record = this.getCase(caseId);
+    const source = record.sources.get(role);
+    if (!source) {
+      throw new DomainError(404, "RESOURCE_NOT_FOUND", `Source ${role} not found.`);
+    }
+    const previousSha256 = source.sha256;
+    source.content = null;
+    source.bytes = null;
+    const workspaceId = this.caseWorkspaces.get(caseId) ?? null;
+    this.auditLogger.log({
+      workspaceId,
+      actorId,
+      eventType: "SOURCE_PURGED",
+      resourceType: "source_version",
+      resourceId: source.source_id,
+      metadata: {
+        role,
+        sha256: previousSha256,
+        purged_at: this.now(),
+      },
+    });
+  }
+
+  getAuditLogs(workspaceId: string, actorId: string): AuditEvent[] {
+    const role = this.getWorkspaceRole(workspaceId, actorId);
+    if (role !== "OWNER") {
+      throw new DomainError(403, "PERMISSION_DENIED", "Only workspace OWNER can view audit logs.");
+    }
+    return this.auditLogger.getEventsByWorkspace(workspaceId);
   }
 
   uploadSource(input: {

@@ -359,6 +359,14 @@ export async function buildApp(
     },
   );
 
+  app.get<{ Params: { workspaceId: string } }>(
+    "/v1/workspaces/:workspaceId/audit-logs",
+    async (request) => {
+      const items = store.getAuditLogs(request.params.workspaceId, request.standbyActorId);
+      return { items };
+    },
+  );
+
   app.post("/v1/cases", async (request, reply) => {
     const body = bodyRecord(request);
     const title = requiredString(body.title, "title");
