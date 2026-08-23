@@ -651,3 +651,58 @@ test("Upstage adapter reports only the failed upstream status", async () => {
       && !error.message.includes("sensitive upstream detail"),
   );
 });
+
+test("Upstage adapter records exactly one sourceRun per role without duplicate provenance", async () => {
+  const mockFetch: typeof fetch = async (input, init) => {
+    const url = String(input);
+    if (url.endsWith("/v2/files")) return Response.json({ id: `file-${Date.now()}` });
+    if (url.endsWith("/v2/responses") && init?.method === "POST") {
+      return Response.json({ id: `job-${Date.now()}` });
+    }
+    return Response.json({
+      id: "job-done",
+      status: "completed",
+      output: [{
+        content: [{ text: JSON.stringify({
+          cue_facts: [{ fact_type: "CUE_ROW", locator: "Cue!A2", source_quote_raw: "E1 GO" }],
+          script_facts: [{ fact_type: "SCRIPT_LINE", locator: "Script!p1_l1", source_quote_raw: "Line 1" }],
+        }) }],
+      }],
+    });
+  };
+
+  const provider = new UpstageAgentProvider({
+    apiKey: "secret-test-key",
+    agentIds: { SCRIPT: "agt_script", MASTER_CUE: "agt_cue" },
+    fetchImpl: mockFetch,
+    pollIntervalMs: 0,
+    timeoutMs: 1_000,
+  });
+
+  const sources = new Map<SourceRole, InternalSourceVersion>([
+    ["SCRIPT", source("SCRIPT", {
+      bytes: Uint8Array.from([0x25, 0x50, 0x44, 0x46]),
+      content: null,
+      mediaType: "application/pdf",
+    })],
+    ["MASTER_CUE", source("MASTER_CUE", {
+      bytes: Uint8Array.from([0x50, 0x4b, 1, 2]),
+      content: null,
+      mediaType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    })],
+    ["STAGE_SPEC", source("STAGE_SPEC", {
+      bytes: null,
+      content: HERO_SOURCE_CONTENT.STAGE_SPEC,
+      mediaType: "application/json",
+    })],
+  ]);
+
+  const result = await provider.extract(sources);
+  const roles = result.sourceRuns.map((run) => run.role);
+
+  assert.deepEqual(roles, ["SCRIPT", "MASTER_CUE", "STAGE_SPEC"]);
+  assert.equal(result.sourceRuns.filter((run) => run.role === "SCRIPT").length, 1);
+  assert.equal(result.sourceRuns.filter((run) => run.role === "MASTER_CUE").length, 1);
+  assert.equal(result.sourceRuns.filter((run) => run.role === "STAGE_SPEC").length, 1);
+});
+

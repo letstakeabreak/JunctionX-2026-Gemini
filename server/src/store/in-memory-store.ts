@@ -152,6 +152,10 @@ export class InMemoryStore {
     return { case_id: caseId, title, created_at: createdAt };
   }
 
+  hasCase(caseId: string): boolean {
+    return this.cases.has(caseId);
+  }
+
   uploadSource(input: {
     caseId: string;
     role: SourceRole;
