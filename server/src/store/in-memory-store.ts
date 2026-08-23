@@ -46,6 +46,10 @@ import type { ExtractionProvider } from "../providers/extraction-provider.js";
 import type { ProductionAgentProvider } from "../providers/production-agent-provider.js";
 import type { ScriptProjectionProvider } from "../providers/script-projection-provider.js";
 
+import type { WorkspaceRole } from "../auth/jwt.js";
+import { hasMinimumRole } from "../auth/jwt.js";
+import type { StateStore, WorkspaceMemberRecord } from "./state-store.js";
+
 const ROLES: SourceRole[] = ["SCRIPT", "MASTER_CUE", "STAGE_SPEC"];
 const REQUIRED_SOURCE_ROLES: SourceRole[] = ["MASTER_CUE"];
 
@@ -80,8 +84,10 @@ function cueRows(content: unknown): CueRow[] {
   });
 }
 
-export class InMemoryStore {
+export class InMemoryStore implements StateStore {
   private readonly cases = new Map<string, CaseRecord>();
+  private readonly caseWorkspaces = new Map<string, string>();
+  private readonly workspaceMembers = new Map<string, Map<string, { role: WorkspaceRole; created_at: string }>>();
   private readonly operations = new Map<string, Operation>();
   private readonly operationCaseIds = new Map<string, string>();
   private readonly operationActorIds = new Map<string, string>();
@@ -132,7 +138,11 @@ export class InMemoryStore {
     return response;
   }
 
-  createCase(title: string, ownerId: string): { case_id: string; title: string; created_at: string } {
+  createCase(
+    title: string,
+    ownerId = "dev-user",
+    workspaceId?: string,
+  ): { case_id: string; title: string; created_at: string } {
     const caseId = this.id("case");
     const createdAt = this.now();
     this.cases.set(caseId, {
@@ -149,11 +159,84 @@ export class InMemoryStore {
       verification: null,
       created_at: createdAt,
     });
+    if (workspaceId) {
+      this.caseWorkspaces.set(caseId, workspaceId);
+      if (!this.workspaceMembers.has(workspaceId)) {
+        this.workspaceMembers.set(workspaceId, new Map());
+      }
+      const members = this.workspaceMembers.get(workspaceId)!;
+      if (!members.has(ownerId)) {
+        members.set(ownerId, { role: "OWNER", created_at: createdAt });
+      }
+    }
     return { case_id: caseId, title, created_at: createdAt };
   }
 
   hasCase(caseId: string): boolean {
     return this.cases.has(caseId);
+  }
+
+  addWorkspaceMember(input: {
+    workspaceId: string;
+    userId: string;
+    role: WorkspaceRole;
+    actorId: string;
+  }): WorkspaceMemberRecord {
+    const members = this.workspaceMembers.get(input.workspaceId);
+    if (!members) {
+      throw new DomainError(404, "RESOURCE_NOT_FOUND", "Workspace not found.");
+    }
+    const actorRole = members.get(input.actorId)?.role;
+    if (actorRole !== "OWNER") {
+      throw new DomainError(403, "PERMISSION_DENIED", "Only workspace OWNER can manage members.");
+    }
+    const createdAt = this.now();
+    members.set(input.userId, { role: input.role, created_at: createdAt });
+    return {
+      workspace_id: input.workspaceId,
+      user_id: input.userId,
+      role: input.role,
+      created_at: createdAt,
+    };
+  }
+
+  getWorkspaceMembers(workspaceId: string, actorId: string): WorkspaceMemberRecord[] {
+    const members = this.workspaceMembers.get(workspaceId);
+    if (!members || !members.has(actorId)) {
+      throw new DomainError(404, "RESOURCE_NOT_FOUND", "Workspace not found.");
+    }
+    return [...members.entries()].map(([userId, record]) => ({
+      workspace_id: workspaceId,
+      user_id: userId,
+      role: record.role,
+      created_at: record.created_at,
+    }));
+  }
+
+  getWorkspaceRole(workspaceId: string, userId: string): WorkspaceRole | null {
+    return this.workspaceMembers.get(workspaceId)?.get(userId)?.role ?? null;
+  }
+
+  assertCaseAccess(caseId: string, actorId: string, requiredRole: WorkspaceRole = "VIEWER"): void {
+    const record = this.getCase(caseId);
+    const workspaceId = this.caseWorkspaces.get(caseId);
+    if (workspaceId) {
+      const role = this.getWorkspaceRole(workspaceId, actorId);
+      if (!role) {
+        throw new DomainError(404, "RESOURCE_NOT_FOUND", "Case not found.");
+      }
+      if (!hasMinimumRole(role, requiredRole)) {
+        throw new DomainError(
+          403,
+          "PERMISSION_DENIED",
+          `Action requires minimum role '${requiredRole}', but user has '${role}'.`,
+        );
+      }
+      return;
+    }
+    if (record.owner_id !== actorId) {
+      throw new DomainError(404, "RESOURCE_NOT_FOUND", "Case not found.");
+    }
   }
 
   uploadSource(input: {
@@ -640,11 +723,8 @@ export class InMemoryStore {
     });
   }
 
-  assertCaseOwner(caseId: string, actorId: string): void {
-    const record = this.getCase(caseId);
-    if (record.owner_id !== actorId) {
-      throw new DomainError(404, "RESOURCE_NOT_FOUND", "Case not found.");
-    }
+  assertCaseOwner(caseId: string, actorId: string, requiredRole: WorkspaceRole = "VIEWER"): void {
+    this.assertCaseAccess(caseId, actorId, requiredRole);
   }
 
   assertOperationOwner(operationId: string, actorId: string): void {
@@ -1425,7 +1505,7 @@ export class InMemoryStore {
     };
   }
 
-  private getCase(caseId: string): CaseRecord {
+  getCase(caseId: string): CaseRecord {
     const record = this.cases.get(caseId);
     if (!record) {
       throw new DomainError(404, "RESOURCE_NOT_FOUND", "Case not found.");

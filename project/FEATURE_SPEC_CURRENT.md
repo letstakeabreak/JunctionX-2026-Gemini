@@ -61,7 +61,8 @@ UUID 세션으로 case 소유권을 분리한다. 이 값은 사용자 신원을
 | 세 verdict | **구현** | `VIOLATION`, `REVIEW`, `INSUFFICIENT_EVIDENCE`; finding 0건은 CONSISTENT |
 | Evidence Trace | **구현** | 모든 finding에 SCRIPT·MASTER_CUE·STAGE_SPEC 역할별 origin·review·locator·quote 표시 |
 | 공개 데모 세션 | **구현** | 로그인 없이 브라우저 UUID를 전송하고 서버가 해시한 actor ID로 사용 |
-| 세션별 격리 | **구현** | case·operation·extraction run owner 검사. 다른 세션의 ID는 404 |
+| 프로덕션 JWT & 멀티테넌시 (P1-B) | **구현 완료** | Supabase Auth HS256/RS256 JWT 서명·만료 검증(`jwt.ts`), 4단계 RBAC(`OWNER\|EDITOR\|REVIEWER\|VIEWER`), 워크스페이스 격리 및 RLS DDL(`002_auth_and_rls.sql`), `auth.test.ts` 100% 통과 |
+| 세션별 격리 | **구현** | case·operation·extraction run owner 검사. 다른 세션 및 다른 테넌트의 ID는 404로 은닉 |
 | 데모 남용 방지 | **구현** | 전체 API 분당 120회, extraction은 IP당 시간당 20회 제한 |
 | Railway 배포 규격 | **구현** | multi-stage Dockerfile, root build context ignore, health check, restart policy. `/healthz`에서 commit SHA·deployment ID·server start time 확인 가능 |
 | API 오류 관측성 | **구현** | 허용되지 않은 origin과 Fastify 4xx/429를 500으로 뭉개지 않고 구분 가능한 상태·code로 보존. 일반 Fastify 4xx/429 응답은 request ID 포함 |

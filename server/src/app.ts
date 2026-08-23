@@ -25,15 +25,18 @@ import type { ExtractionProvider } from "./providers/extraction-provider.js";
 import type { ProductionAgentProvider } from "./providers/production-agent-provider.js";
 import type { ScriptProjectionProvider } from "./providers/script-projection-provider.js";
 import { InMemoryStore } from "./store/in-memory-store.js";
+import { verifyJwtToken, type AuthContext, type WorkspaceRole } from "./auth/jwt.js";
 
 declare module "fastify" {
   interface FastifyRequest {
     standbyActorId: string;
+    standbyAuthContext: AuthContext;
   }
 }
 
 export type ServerConfig = {
   apiToken?: string;
+  jwtSecret?: string;
   allowAnonymous?: boolean;
   allowedOrigins: string[];
   logger?: boolean;
@@ -105,23 +108,30 @@ export async function buildApp(
 ) {
   const app = Fastify({
     logger: config.logger ?? false,
-    bodyLimit: 1_048_576,
-    trustProxy: true,
   });
 
   await app.register(helmet, {
-    contentSecurityPolicy: false,
-    crossOriginResourcePolicy: { policy: "same-site" },
+    crossOriginResourcePolicy: { policy: "cross-origin" },
   });
   await app.register(cors, {
-    credentials: false,
-    origin(origin, callback) {
-      if (!origin || config.allowedOrigins.includes(origin)) {
+    origin: (origin, callback) => {
+      if (!origin) {
+        callback(null, true);
+        return;
+      }
+      if (config.allowedOrigins.includes(origin)) {
         callback(null, true);
         return;
       }
       callback(new DomainError(403, "ORIGIN_NOT_ALLOWED", "Origin is not allowed."), false);
     },
+    methods: ["GET", "POST", "PUT", "OPTIONS"],
+    allowedHeaders: [
+      "Content-Type",
+      "Authorization",
+      "X-STANDBY-SESSION",
+      "Idempotency-Key",
+    ],
   });
   await app.register(rateLimit, {
     max: 120,
@@ -132,13 +142,32 @@ export async function buildApp(
   });
 
   app.decorateRequest("standbyActorId", "");
+  app.decorateRequest("standbyAuthContext", null as unknown as AuthContext);
   app.addHook("onRequest", async (request) => {
     if (request.url === "/healthz") return;
     if (!request.url.startsWith("/v1/")) return;
     const authorization = request.headers.authorization;
     const token = authorization?.startsWith("Bearer ") ? authorization.slice(7).trim() : "";
-    if (token && config.apiToken && token === config.apiToken) {
-      request.standbyActorId = "dev-user";
+    if (token) {
+      if (config.apiToken && token === config.apiToken) {
+        request.standbyActorId = "dev-user";
+        request.standbyAuthContext = {
+          actorId: "dev-user",
+          mode: "USER",
+          userId: "dev-user",
+          role: "OWNER",
+        };
+        return;
+      }
+      const principal = verifyJwtToken(token, config.jwtSecret);
+      request.standbyActorId = principal.sub;
+      request.standbyAuthContext = {
+        actorId: principal.sub,
+        mode: "USER",
+        userId: principal.sub,
+        workspaceId: principal.workspace_id,
+        role: principal.role,
+      };
       return;
     }
     const anonymousSession = request.headers["x-standby-session"];
@@ -147,10 +176,15 @@ export async function buildApp(
       typeof anonymousSession === "string" &&
       /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(anonymousSession)
     ) {
-      request.standbyActorId = `anonymous_${sha256(anonymousSession).slice(0, 24)}`;
+      const actorId = `anonymous_${sha256(anonymousSession).slice(0, 24)}`;
+      request.standbyActorId = actorId;
+      request.standbyAuthContext = {
+        actorId,
+        mode: "DEMO",
+      };
       return;
     }
-    throw new DomainError(401, "UNAUTHENTICATED", "A valid demo session is required.");
+    throw new DomainError(401, "UNAUTHENTICATED", "A valid demo session or Bearer token is required.");
   });
 
   app.setErrorHandler((error, request, reply) => {
@@ -298,14 +332,45 @@ export async function buildApp(
     },
   );
 
+  app.post<{ Params: { workspaceId: string } }>(
+    "/v1/workspaces/:workspaceId/members",
+    async (request, reply) => {
+      const body = bodyRecord(request);
+      const userId = requiredString(body.user_id, "user_id");
+      const role = requiredString(body.role, "role") as WorkspaceRole;
+      if (!["OWNER", "EDITOR", "REVIEWER", "VIEWER"].includes(role)) {
+        throw new DomainError(422, "INVALID_ARGUMENT", "Invalid workspace role.");
+      }
+      const created = store.addWorkspaceMember({
+        workspaceId: request.params.workspaceId,
+        userId,
+        role,
+        actorId: request.standbyActorId,
+      });
+      return reply.status(201).send(created);
+    },
+  );
+
+  app.get<{ Params: { workspaceId: string } }>(
+    "/v1/workspaces/:workspaceId/members",
+    async (request) => {
+      const items = store.getWorkspaceMembers(request.params.workspaceId, request.standbyActorId);
+      return { items };
+    },
+  );
+
   app.post("/v1/cases", async (request, reply) => {
     const body = bodyRecord(request);
     const title = requiredString(body.title, "title");
+    const workspaceId =
+      typeof body.workspace_id === "string" && body.workspace_id.trim().length > 0
+        ? body.workspace_id.trim()
+        : request.standbyAuthContext.workspaceId;
     const response = store.withIdempotency(
       `${request.standbyActorId}:POST:/v1/cases`,
       idempotencyKey(request),
       body,
-      () => store.createCase(title, request.standbyActorId),
+      () => store.createCase(title, request.standbyActorId, workspaceId),
     );
     return reply.status(201).send(response);
   });
@@ -317,7 +382,7 @@ export async function buildApp(
         throw new DomainError(422, "ENUM_VALUE_INVALID", "Unknown source role.");
       }
       const role = request.params.role as SourceRole;
-      store.assertCaseOwner(request.params.caseId, request.standbyActorId);
+      store.assertCaseOwner(request.params.caseId, request.standbyActorId, "EDITOR");
       if (request.isMultipart()) {
         if (role === "STAGE_SPEC") {
           throw new DomainError(415, "SOURCE_MEDIA_TYPE_INVALID", "STAGE_SPEC must be JSON.");
@@ -387,7 +452,7 @@ export async function buildApp(
   app.post<{ Params: { caseId: string } }>(
     "/v1/cases/:caseId/source-refreshes/MASTER_CUE",
     async (request, reply) => {
-      store.assertCaseOwner(request.params.caseId, request.standbyActorId);
+      store.assertCaseOwner(request.params.caseId, request.standbyActorId, "EDITOR");
       if (!request.isMultipart()) throw new DomainError(415, "SOURCE_MEDIA_TYPE_INVALID", "Refresh requires a file.");
       const part = await request.file();
       if (!part) throw new DomainError(400, "INVALID_ARGUMENT", "file is required.");
@@ -420,7 +485,7 @@ export async function buildApp(
     "/v1/cases/:caseId/extraction-runs",
     { config: { rateLimit: { max: 20, timeWindow: "1 hour" } } },
     async (request, reply) => {
-      store.assertCaseOwner(request.params.caseId, request.standbyActorId);
+      store.assertCaseOwner(request.params.caseId, request.standbyActorId, "EDITOR");
       const body = bodyRecord(request);
       const adapter = body.adapter;
       if (adapter !== "CONTROLLED_FIXTURE" && adapter !== "UPSTAGE_AGENT") {
@@ -457,7 +522,7 @@ export async function buildApp(
     "/v1/cases/:caseId/production-agent-runs",
     { config: { rateLimit: { max: 60, timeWindow: "1 hour" } } },
     async (request, reply) => {
-      store.assertCaseOwner(request.params.caseId, request.standbyActorId);
+      store.assertCaseOwner(request.params.caseId, request.standbyActorId, "VIEWER");
       const body = bodyRecord(request);
       assertAllowedFields(body, ["role", "event_id"]);
       if (!PRODUCTION_AGENT_ROLES.has(body.role as ProductionAgentRole)) {
@@ -492,7 +557,7 @@ export async function buildApp(
   app.get<{ Params: { caseId: string } }>(
     "/v1/cases/:caseId/fact-normalization-recommendations",
     async (request) => {
-      store.assertCaseOwner(request.params.caseId, request.standbyActorId);
+      store.assertCaseOwner(request.params.caseId, request.standbyActorId, "VIEWER");
       return store.getFactNormalizationRecommendations(request.params.caseId);
     },
   );
@@ -500,7 +565,7 @@ export async function buildApp(
   app.post<{ Params: { caseId: string } }>(
     "/v1/cases/:caseId/fact-normalization-recommendations:approve-batch",
     async (request, reply) => {
-      store.assertCaseOwner(request.params.caseId, request.standbyActorId);
+      store.assertCaseOwner(request.params.caseId, request.standbyActorId, "REVIEWER");
       const body = bodyRecord(request);
       assertAllowedFields(body, ["fact_ids"]);
       if (!Array.isArray(body.fact_ids) || body.fact_ids.length === 0) {
@@ -526,7 +591,7 @@ export async function buildApp(
   app.get<{ Params: { caseId: string } }>(
     "/v1/cases/:caseId/review-queue",
     async (request) => {
-      store.assertCaseOwner(request.params.caseId, request.standbyActorId);
+      store.assertCaseOwner(request.params.caseId, request.standbyActorId, "VIEWER");
       return store.getReviewQueue(request.params.caseId);
     },
   );
@@ -534,7 +599,7 @@ export async function buildApp(
   app.post<{ Params: { caseId: string } }>(
     "/v1/cases/:caseId/fact-reviews:batch",
     async (request, reply) => {
-      store.assertCaseOwner(request.params.caseId, request.standbyActorId);
+      store.assertCaseOwner(request.params.caseId, request.standbyActorId, "REVIEWER");
       const body = bodyRecord(request);
       assertAllowedFields(body, ["reviews"]);
       if (!Array.isArray(body.reviews) || body.reviews.length === 0) {
@@ -595,7 +660,7 @@ export async function buildApp(
   app.post<{ Params: { caseId: string } }>(
     "/v1/cases/:caseId/review-snapshots",
     async (request, reply) => {
-      store.assertCaseOwner(request.params.caseId, request.standbyActorId);
+      store.assertCaseOwner(request.params.caseId, request.standbyActorId, "REVIEWER");
       const body = bodyRecord(request);
       const response = store.withIdempotency(
         `POST:/v1/cases/${request.params.caseId}/review-snapshots`,
@@ -610,7 +675,7 @@ export async function buildApp(
   app.get<{ Params: { caseId: string } }>(
     "/v1/cases/:caseId/workspace",
     async (request) => {
-      store.assertCaseOwner(request.params.caseId, request.standbyActorId);
+      store.assertCaseOwner(request.params.caseId, request.standbyActorId, "VIEWER");
       return store.getWorkspace(request.params.caseId);
     },
   );
@@ -618,7 +683,7 @@ export async function buildApp(
   app.get<{ Params: { caseId: string } }>(
     "/v1/cases/:caseId/cue-revisions",
     async (request) => {
-      store.assertCaseOwner(request.params.caseId, request.standbyActorId);
+      store.assertCaseOwner(request.params.caseId, request.standbyActorId, "VIEWER");
       return { items: store.listCueRevisions(request.params.caseId).map(revisionProjection) };
     },
   );
@@ -626,7 +691,7 @@ export async function buildApp(
   app.get<{ Params: { caseId: string; revisionId: string } }>(
     "/v1/cases/:caseId/cue-revisions/:revisionId",
     async (request) => {
-      store.assertCaseOwner(request.params.caseId, request.standbyActorId);
+      store.assertCaseOwner(request.params.caseId, request.standbyActorId, "VIEWER");
       return store.getCueRevision(request.params.caseId, request.params.revisionId);
     },
   );
@@ -634,7 +699,7 @@ export async function buildApp(
   app.get<{ Params: { caseId: string; revisionId: string } }>(
     "/v1/cases/:caseId/cue-revisions/:revisionId/export.xlsx",
     async (request, reply) => {
-      store.assertCaseOwner(request.params.caseId, request.standbyActorId);
+      store.assertCaseOwner(request.params.caseId, request.standbyActorId, "VIEWER");
       const exported = await store.exportCueRevision(request.params.caseId, request.params.revisionId);
       reply.header("content-type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
       reply.header("content-disposition", `attachment; filename="${exported.filename}"`);
@@ -645,7 +710,7 @@ export async function buildApp(
   app.get<{ Params: { caseId: string; revisionId: string } }>(
     "/v1/cases/:caseId/cue-revisions/:revisionId/export.docx",
     async (request, reply) => {
-      store.assertCaseOwner(request.params.caseId, request.standbyActorId);
+      store.assertCaseOwner(request.params.caseId, request.standbyActorId, "VIEWER");
       const exported = await store.exportStandardCueDocx(request.params.caseId, request.params.revisionId);
       reply.header("content-type", "application/vnd.openxmlformats-officedocument.wordprocessingml.document");
       reply.header("content-disposition", `attachment; filename="${exported.filename}"`);
@@ -656,7 +721,7 @@ export async function buildApp(
   app.get<{ Params: { caseId: string; revisionId: string } }>(
     "/v1/cases/:caseId/cue-revisions/:revisionId/print",
     async (request, reply) => {
-      store.assertCaseOwner(request.params.caseId, request.standbyActorId);
+      store.assertCaseOwner(request.params.caseId, request.standbyActorId, "VIEWER");
       reply.header("content-type", "text/html; charset=utf-8");
       return reply.send(store.exportStandardCuePrint(request.params.caseId, request.params.revisionId));
     },
@@ -665,7 +730,7 @@ export async function buildApp(
   app.post<{ Params: { caseId: string } }>(
     "/v1/cases/:caseId/cue-revisions",
     async (request, reply) => {
-      store.assertCaseOwner(request.params.caseId, request.standbyActorId);
+      store.assertCaseOwner(request.params.caseId, request.standbyActorId, "EDITOR");
       const body = bodyRecord(request);
       if (!Array.isArray(body.patches)) {
         throw new DomainError(400, "INVALID_ARGUMENT", "patches must be an array.");
