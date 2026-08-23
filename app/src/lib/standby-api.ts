@@ -329,7 +329,7 @@ function getDemoSessionId() {
   return created;
 }
 
-export function createStandbyBrowserApi(): StandbyApi | null {
-  const baseUrl = import.meta.env.VITE_STANDBY_API_BASE_URL as string | undefined;
-  return baseUrl ? new StandbyApi({ baseUrl, getSessionId: getDemoSessionId }) : null;
+export function createStandbyBrowserApi(): StandbyApi {
+  const baseUrl = (import.meta.env.VITE_STANDBY_API_BASE_URL as string | undefined) ?? "";
+  return new StandbyApi({ baseUrl, getSessionId: getDemoSessionId });
 }
