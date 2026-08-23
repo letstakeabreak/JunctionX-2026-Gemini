@@ -1,8 +1,8 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
-import { buildApp } from "./server/dist/src/app.js";
-import { UpstageAgentProvider } from "./server/dist/src/providers/upstage-agent-provider.js";
-import { ProductionAgentProvider } from "./server/dist/src/providers/production-agent-provider.js";
-import { ScriptProjectionProvider } from "./server/dist/src/providers/script-projection-provider.js";
+import { buildApp } from "../server/src/app.js";
+import { UpstageAgentProvider } from "../server/src/providers/upstage-agent-provider.js";
+import { ProductionAgentProvider } from "../server/src/providers/production-agent-provider.js";
+import { ScriptProjectionProvider } from "../server/src/providers/script-projection-provider.js";
 
 let fastifyApp: any = null;
 
