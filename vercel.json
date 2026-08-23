@@ -2,8 +2,8 @@
   "buildCommand": "cd server && npm ci && npm run build && cd ../app && npm ci && npm run build",
   "outputDirectory": "app/dist",
   "rewrites": [
-    { "source": "/v1/(.*)", "destination": "/api/index.js" },
-    { "source": "/healthz", "destination": "/api/index.js" },
+    { "source": "/v1/:match*", "destination": "/api" },
+    { "source": "/healthz", "destination": "/api" },
     { "source": "/(.*)", "destination": "/index.html" }
   ]
 }
