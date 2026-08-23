@@ -136,7 +136,11 @@ function stageSnapshot(value: unknown): Record<string, StageEntityState> | null 
     ) {
       return null;
     }
-    result[entityId] = transition ? { kind, zone, transition } : { kind, zone };
+    if (transition === "ENTER" || transition === "EXIT") {
+      result[entityId] = { kind, zone, transition };
+    } else {
+      result[entityId] = { kind, zone };
+    }
   }
   return result;
 }
