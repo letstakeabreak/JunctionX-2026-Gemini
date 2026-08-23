@@ -119,7 +119,12 @@ export async function buildApp(
         callback(null, true);
         return;
       }
-      if (config.allowedOrigins.includes(origin)) {
+      if (
+        config.allowedOrigins.includes("*") ||
+        config.allowedOrigins.includes(origin) ||
+        origin.endsWith(".vercel.app") ||
+        origin.startsWith("http://localhost:")
+      ) {
         callback(null, true);
         return;
       }
