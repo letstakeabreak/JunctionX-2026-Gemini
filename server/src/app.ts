@@ -27,6 +27,7 @@ import type { ScriptProjectionProvider } from "./providers/script-projection-pro
 import { InMemoryStore } from "./store/in-memory-store.js";
 import { verifyJwtToken, type AuthContext, type WorkspaceRole } from "./auth/jwt.js";
 import { configuredOrigins } from "./runtime-config.js";
+import { isIP } from "node:net";
 
 declare module "fastify" {
   interface FastifyRequest {
@@ -44,6 +45,7 @@ export type ServerConfig = {
   allowedOrigins: string[];
   logger?: boolean;
   trustProxy?: number | false;
+  trustFlyClientIp?: boolean;
   isDraining?: () => boolean;
   extractionProvider?: ExtractionProvider;
   productionAgentProvider?: ProductionAgentProvider;
@@ -118,7 +120,7 @@ export async function buildApp(
       redact: ["req.headers.authorization", "req.headers.cookie", 'req.headers["x-standby-session"]'],
     } : false,
     bodyLimit: 1_048_576,
-    trustProxy: trustedProxyHops > 0 ? (_address, hop) => hop < trustedProxyHops : false,
+    trustProxy: !config.trustFlyClientIp && trustedProxyHops > 0 ? (_address, hop) => hop < trustedProxyHops : false,
   });
 
   await app.register(helmet, {
@@ -147,6 +149,14 @@ export async function buildApp(
   await app.register(rateLimit, {
     max: 120,
     timeWindow: "1 minute",
+    keyGenerator: (request) => {
+      // Fly Proxy replaces this header. Trust it only in the explicitly enabled
+      // Fly deployment, only for rate buckets; it never supplies an actor ID.
+      const clientIp = request.headers["fly-client-ip"];
+      return config.trustFlyClientIp && typeof clientIp === "string" && isIP(clientIp) !== 0
+        ? clientIp
+        : request.ip;
+    },
   });
   await app.register(multipart, {
     limits: { files: 1, fields: 4, fileSize: MAX_SOURCE_FILE_BYTES },

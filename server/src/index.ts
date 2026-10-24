@@ -106,6 +106,7 @@ const app = await buildApp({
   logger: true,
   allowAnonymous: runtime.allowAnonymous,
   trustProxy: runtime.trustProxy,
+  trustFlyClientIp: runtime.trustFlyClientIp,
   isDraining: () => draining,
   jwtIssuer: runtime.jwtIssuer,
   ...(runtime.jwtSecret ? { jwtSecret: runtime.jwtSecret } : {}),

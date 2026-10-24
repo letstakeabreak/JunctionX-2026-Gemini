@@ -10,6 +10,7 @@ export type RuntimeConfig = {
   jwtIssuer: string;
   jwtAudience?: string;
   trustProxy: number | false;
+  trustFlyClientIp: boolean;
   pollIntervalMs: number;
   providerTimeoutMs: number;
   shutdownGraceMs: number;
@@ -65,6 +66,16 @@ export function readRuntimeConfig(env: RuntimeEnvironment = process.env): Runtim
   }
   if (production && !env.UPSTAGE_API_KEY?.trim()) throw new Error("UPSTAGE_API_KEY is required for the production backend.");
   const trustProxyHops = integer(env, "STANDBY_TRUST_PROXY_HOPS", 0, 0, 10);
+  if (env.STANDBY_TRUST_FLY_CLIENT_IP !== undefined && !["true", "false"].includes(env.STANDBY_TRUST_FLY_CLIENT_IP)) {
+    throw new Error("STANDBY_TRUST_FLY_CLIENT_IP must be true or false.");
+  }
+  const trustFlyClientIp = env.STANDBY_TRUST_FLY_CLIENT_IP === "true";
+  if (trustFlyClientIp && production && !env.FLY_APP_NAME?.trim()) {
+    throw new Error("STANDBY_TRUST_FLY_CLIENT_IP requires the Fly-managed production runtime.");
+  }
+  if (trustFlyClientIp && trustProxyHops !== 0) {
+    throw new Error("Fly client-IP mode requires STANDBY_TRUST_PROXY_HOPS=0.");
+  }
   return {
     production,
     port: integer(env, "PORT", 8787, 1, 65_535),
@@ -75,6 +86,7 @@ export function readRuntimeConfig(env: RuntimeEnvironment = process.env): Runtim
     jwtIssuer: env.STANDBY_JWT_ISSUER?.trim() || "supabase",
     ...(env.STANDBY_JWT_AUDIENCE?.trim() ? { jwtAudience: env.STANDBY_JWT_AUDIENCE.trim() } : {}),
     trustProxy: trustProxyHops || false,
+    trustFlyClientIp,
     pollIntervalMs: integer(env, "UPSTAGE_POLL_INTERVAL_MS", 2_000, 250, 30_000),
     providerTimeoutMs: integer(env, "UPSTAGE_TIMEOUT_MS", 600_000, 1_000, 900_000),
     shutdownGraceMs: integer(env, "STANDBY_SHUTDOWN_GRACE_MS", 30_000, 1_000, 600_000),

@@ -23,6 +23,7 @@ test("production runtime requires explicit provider and origin configuration wit
   assert.equal(config.apiToken, undefined);
   assert.equal(config.port, 8787);
   assert.equal(config.trustProxy, false);
+  assert.equal(config.trustFlyClientIp, false);
   assert.throws(() => readRuntimeConfig({ NODE_ENV: "production" }), /STANDBY_ALLOWED_ORIGINS/);
   assert.throws(() => readRuntimeConfig({ ...PRODUCTION_ENV, UPSTAGE_API_KEY: "" }), /UPSTAGE_API_KEY/);
   assert.throws(() => readRuntimeConfig({ ...PRODUCTION_ENV, STANDBY_ALLOW_ANONYMOUS: "false" }), /authentication/);
@@ -37,6 +38,10 @@ test("production runtime requires explicit provider and origin configuration wit
   for (const [name, value] of [["PORT", "8787junk"], ["STANDBY_TRUST_PROXY_HOPS", "true"], ["UPSTAGE_TIMEOUT_MS", "-1"]]) {
     assert.throws(() => readRuntimeConfig({ ...PRODUCTION_ENV, [name!]: value }), new RegExp(name!));
   }
+  assert.throws(() => readRuntimeConfig({ ...PRODUCTION_ENV, STANDBY_TRUST_FLY_CLIENT_IP: "yes" }), /STANDBY_TRUST_FLY_CLIENT_IP/);
+  assert.throws(() => readRuntimeConfig({ ...PRODUCTION_ENV, STANDBY_TRUST_FLY_CLIENT_IP: "true" }), /Fly-managed/);
+  assert.throws(() => readRuntimeConfig({ ...PRODUCTION_ENV, STANDBY_TRUST_FLY_CLIENT_IP: "true", FLY_APP_NAME: "controlled-test", STANDBY_TRUST_PROXY_HOPS: "1" }), /TRUST_PROXY_HOPS=0/);
+  assert.equal(readRuntimeConfig({ ...PRODUCTION_ENV, STANDBY_TRUST_FLY_CLIENT_IP: "true", FLY_APP_NAME: "controlled-test" }).trustFlyClientIp, true);
 });
 
 test("JWT verification checks signed structure, algorithm, issuer, expiry, audience and activation", () => {
@@ -134,5 +139,38 @@ test("readiness becomes unavailable and writes are rejected during graceful drai
     }, payload: { title: "retry later" } });
     assert.equal(response.statusCode, 503);
     assert.equal(response.json().error.code, "SERVER_DRAINING");
+  } finally { await app.close(); }
+});
+
+test("Fly rate buckets separate valid client IPs only after explicit deployment opt-in", async () => {
+  const app = await buildApp({ allowedOrigins: [ORIGIN], trustFlyClientIp: true });
+  try {
+    const health = (clientIp: string) => app.inject({ method: "GET", url: "/healthz", headers: { "fly-client-ip": clientIp } });
+    const first = await health("203.0.113.10");
+    const second = await health("2001:db8::20");
+    const repeated = await health("203.0.113.10");
+    assert.equal(first.statusCode, 200);
+    assert.equal(second.headers["x-ratelimit-remaining"], first.headers["x-ratelimit-remaining"]);
+    assert.equal(Number(repeated.headers["x-ratelimit-remaining"]), Number(first.headers["x-ratelimit-remaining"]) - 1);
+  } finally { await app.close(); }
+});
+
+test("invalid or comma-separated Fly headers share the socket fallback bucket", async () => {
+  const app = await buildApp({ allowedOrigins: [ORIGIN], trustFlyClientIp: true });
+  try {
+    const first = await app.inject({ method: "GET", url: "/healthz", headers: { "fly-client-ip": "203.0.113.10, 203.0.113.20" } });
+    const second = await app.inject({ method: "GET", url: "/healthz", headers: { "fly-client-ip": "invalid-client" } });
+    const missing = await app.inject({ method: "GET", url: "/healthz" });
+    assert.equal(Number(second.headers["x-ratelimit-remaining"]), Number(first.headers["x-ratelimit-remaining"]) - 1);
+    assert.equal(Number(missing.headers["x-ratelimit-remaining"]), Number(first.headers["x-ratelimit-remaining"]) - 2);
+  } finally { await app.close(); }
+});
+
+test("default rate limiting ignores supplied Fly headers", async () => {
+  const app = await buildApp({ allowedOrigins: [ORIGIN] });
+  try {
+    const first = await app.inject({ method: "GET", url: "/healthz", headers: { "fly-client-ip": "203.0.113.10" } });
+    const second = await app.inject({ method: "GET", url: "/healthz", headers: { "fly-client-ip": "203.0.113.20" } });
+    assert.equal(Number(second.headers["x-ratelimit-remaining"]), Number(first.headers["x-ratelimit-remaining"]) - 1);
   } finally { await app.close(); }
 });
