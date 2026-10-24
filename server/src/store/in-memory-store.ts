@@ -145,6 +145,13 @@ export class InMemoryStore implements StateStore {
     ownerId = "dev-user",
     workspaceId?: string,
   ): { case_id: string; title: string; created_at: string } {
+    if (workspaceId && this.workspaceMembers.has(workspaceId)) {
+      const existingRole = this.getWorkspaceRole(workspaceId, ownerId);
+      if (!existingRole) throw new DomainError(404, "RESOURCE_NOT_FOUND", "Workspace not found.");
+      if (!hasMinimumRole(existingRole, "EDITOR")) {
+        throw new DomainError(403, "PERMISSION_DENIED", "An EDITOR or OWNER role is required to create workspace cases.");
+      }
+    }
     const caseId = this.id("case");
     const createdAt = this.now();
     this.cases.set(caseId, {
@@ -164,14 +171,23 @@ export class InMemoryStore implements StateStore {
     if (workspaceId) {
       this.caseWorkspaces.set(caseId, workspaceId);
       if (!this.workspaceMembers.has(workspaceId)) {
-        this.workspaceMembers.set(workspaceId, new Map());
-      }
-      const members = this.workspaceMembers.get(workspaceId)!;
-      if (!members.has(ownerId)) {
-        members.set(ownerId, { role: "OWNER", created_at: createdAt });
+        this.workspaceMembers.set(workspaceId, new Map([[ownerId, { role: "OWNER", created_at: createdAt }]]));
       }
     }
     return { case_id: caseId, title, created_at: createdAt };
+  }
+
+  pendingOperationCount(): number {
+    return [...this.operations.values()].filter((operation) => ["QUEUED", "RUNNING"].includes(operation.status)).length;
+  }
+
+  async waitForIdle(timeoutMs: number): Promise<boolean> {
+    const deadline = Date.now() + timeoutMs;
+    while (this.pendingOperationCount() > 0) {
+      if (Date.now() >= deadline) return false;
+      await new Promise((resolve) => setTimeout(resolve, Math.min(50, Math.max(1, deadline - Date.now()))));
+    }
+    return true;
   }
 
   hasCase(caseId: string): boolean {

@@ -11,6 +11,7 @@ export type JwtPrincipal = {
   exp?: number | undefined;
   iss?: string | undefined;
   aud?: string | undefined;
+  nbf?: number | undefined;
 };
 
 export type AuthContext = {
@@ -21,7 +22,6 @@ export type AuthContext = {
   role?: WorkspaceRole | undefined;
 };
 
-const DEFAULT_JWT_SECRET = process.env.STANDBY_JWT_SECRET ?? "standby-development-supabase-jwt-secret-2026";
 const EXPECTED_ISSUER = process.env.STANDBY_JWT_ISSUER ?? "supabase";
 
 function base64UrlDecode(str: string): string {
@@ -42,7 +42,7 @@ function base64UrlEncode(buffer: Buffer | string): string {
  */
 export function createTestJwt(
   payload: Partial<JwtPrincipal> & { sub: string },
-  secret = DEFAULT_JWT_SECRET,
+  secret: string,
   expiresInSeconds = 3600,
 ): string {
   const header = { alg: "HS256", typ: "JWT" };
@@ -68,7 +68,15 @@ export function createTestJwt(
 /**
  * Verifies HS256 JWT signature, issuer, and expiration.
  */
-export function verifyJwtToken(token: string, secret = DEFAULT_JWT_SECRET): JwtPrincipal {
+export function verifyJwtToken(
+  token: string,
+  secret = process.env.STANDBY_JWT_SECRET,
+  options: { issuer?: string; audience?: string } = {},
+): JwtPrincipal {
+  if (!secret) throw new DomainError(503, "AUTH_NOT_CONFIGURED", "JWT authentication is not configured.");
+  if (token.length > 16_384 || !/^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/.test(token)) {
+    throw new DomainError(401, "UNAUTHENTICATED", "Invalid JWT format.");
+  }
   const parts = token.split(".");
   if (parts.length !== 3) {
     throw new DomainError(401, "UNAUTHENTICATED", "Invalid JWT format.");
@@ -77,6 +85,14 @@ export function verifyJwtToken(token: string, secret = DEFAULT_JWT_SECRET): JwtP
   const [encodedHeader, encodedPayload, encodedSignature] = parts;
   if (!encodedHeader || !encodedPayload || !encodedSignature) {
     throw new DomainError(401, "UNAUTHENTICATED", "Invalid JWT segment.");
+  }
+
+  try {
+    const header = JSON.parse(base64UrlDecode(encodedHeader));
+    if (!header || typeof header !== "object" || Array.isArray(header) || header.alg !== "HS256" ||
+      (header.typ !== undefined && header.typ !== "JWT")) throw new Error("Unsupported JWT header.");
+  } catch {
+    throw new DomainError(401, "UNAUTHENTICATED", "Invalid JWT header.");
   }
 
   // 1. Verify Signature
@@ -95,26 +111,42 @@ export function verifyJwtToken(token: string, secret = DEFAULT_JWT_SECRET): JwtP
   // 2. Decode and validate payload
   let payload: JwtPrincipal;
   try {
-    payload = JSON.parse(base64UrlDecode(encodedPayload)) as JwtPrincipal;
+    const decoded: unknown = JSON.parse(base64UrlDecode(encodedPayload));
+    if (!decoded || typeof decoded !== "object" || Array.isArray(decoded)) throw new Error("JWT payload must be an object.");
+    payload = decoded as JwtPrincipal;
   } catch {
     throw new DomainError(401, "UNAUTHENTICATED", "JWT payload decode failed.");
   }
 
-  if (!payload.sub || typeof payload.sub !== "string") {
+  if (!payload.sub || typeof payload.sub !== "string" || payload.sub.length > 256 || payload.sub.trim() !== payload.sub) {
     throw new DomainError(401, "UNAUTHENTICATED", "JWT subject (sub) is missing.");
   }
 
   // 3. Check expiration
-  if (payload.exp && typeof payload.exp === "number") {
-    const now = Math.floor(Date.now() / 1000);
-    if (payload.exp < now) {
-      throw new DomainError(401, "UNAUTHENTICATED", "JWT token has expired.");
-    }
+  const now = Math.floor(Date.now() / 1000);
+  if (typeof payload.exp !== "number" || !Number.isSafeInteger(payload.exp) || payload.exp <= now) {
+    throw new DomainError(401, "UNAUTHENTICATED", "JWT token has expired or has no valid expiry.");
+  }
+  if (payload.nbf !== undefined && (typeof payload.nbf !== "number" || !Number.isSafeInteger(payload.nbf) || payload.nbf > now)) {
+    throw new DomainError(401, "UNAUTHENTICATED", "JWT token is not active.");
+  }
+  if (payload.iss !== (options.issuer ?? EXPECTED_ISSUER)) {
+    throw new DomainError(401, "UNAUTHENTICATED", "JWT issuer is invalid.");
+  }
+  const audience = options.audience ?? process.env.STANDBY_JWT_AUDIENCE;
+  if (audience && payload.aud !== audience && !(Array.isArray(payload.aud) && payload.aud.includes(audience))) {
+    throw new DomainError(401, "UNAUTHENTICATED", "JWT audience is invalid.");
+  }
+  if (payload.workspace_id !== undefined && (typeof payload.workspace_id !== "string" || !payload.workspace_id || payload.workspace_id.length > 256)) {
+    throw new DomainError(401, "UNAUTHENTICATED", "JWT workspace is invalid.");
   }
 
   // 4. Default role if not specified
   if (!payload.role) {
     payload.role = "VIEWER";
+  }
+  if (!["OWNER", "EDITOR", "REVIEWER", "VIEWER"].includes(payload.role)) {
+    throw new DomainError(401, "UNAUTHENTICATED", "JWT role is invalid.");
   }
 
   return payload;

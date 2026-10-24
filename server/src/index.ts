@@ -1,10 +1,10 @@
 import { buildApp } from "./app.js";
 import { UpstageAgentProvider } from "./providers/upstage-agent-provider.js";
+import { readRuntimeConfig } from "./runtime-config.js";
+import { InMemoryStore } from "./store/in-memory-store.js";
 
-const isProduction = process.env.NODE_ENV === "production";
+const runtime = readRuntimeConfig();
 const startedAt = new Date().toISOString();
-const allowAnonymous = process.env.STANDBY_ALLOW_ANONYMOUS !== "false";
-const apiToken = process.env.STANDBY_API_TOKEN ?? (isProduction ? undefined : "local-dev-token");
 const upstageAgentDefaults = {
   extraction: {
     script: "agt_7yeqpDe7zmwCGVWoMY377j",
@@ -31,11 +31,6 @@ const upstageAgentDefaults = {
   },
 };
 
-const allowedOrigins = (process.env.STANDBY_ALLOWED_ORIGINS ?? "http://localhost:5173")
-  .split(",")
-  .map((origin) => origin.trim())
-  .filter(Boolean);
-const port = Number(process.env.PORT ?? 8787);
 const sharedAgentId = process.env.UPSTAGE_AGENT_ID;
 const scriptAgentId = process.env.UPSTAGE_AGENT_ID_SCRIPT ?? sharedAgentId;
 const masterCueAgentId = process.env.UPSTAGE_AGENT_ID_MASTER_CUE ?? sharedAgentId;
@@ -99,21 +94,28 @@ const upstageProvider = process.env.UPSTAGE_API_KEY
       configIds,
       productionAgentIds,
       productionConfigIds,
-      pollIntervalMs: Number(process.env.UPSTAGE_POLL_INTERVAL_MS ?? 2_000),
-      timeoutMs: Number(process.env.UPSTAGE_TIMEOUT_MS ?? 600_000),
+      pollIntervalMs: runtime.pollIntervalMs,
+      timeoutMs: runtime.providerTimeoutMs,
     })
   : undefined;
 
+const store = new InMemoryStore(upstageProvider ?? null, upstageProvider ?? null, upstageProvider ?? null);
+let draining = false;
 const app = await buildApp({
-  allowedOrigins,
+  allowedOrigins: runtime.allowedOrigins,
   logger: true,
-  allowAnonymous,
+  allowAnonymous: runtime.allowAnonymous,
+  trustProxy: runtime.trustProxy,
+  isDraining: () => draining,
+  jwtIssuer: runtime.jwtIssuer,
+  ...(runtime.jwtSecret ? { jwtSecret: runtime.jwtSecret } : {}),
+  ...(runtime.jwtAudience ? { jwtAudience: runtime.jwtAudience } : {}),
   deployment: {
-    commitSha: process.env.RAILWAY_GIT_COMMIT_SHA ?? process.env.GIT_COMMIT_SHA ?? null,
-    deploymentId: process.env.RAILWAY_DEPLOYMENT_ID ?? null,
+    commitSha: process.env.GIT_COMMIT_SHA ?? process.env.RAILWAY_GIT_COMMIT_SHA ?? null,
+    deploymentId: process.env.DEPLOYMENT_ID ?? process.env.FLY_MACHINE_ID ?? process.env.RAILWAY_DEPLOYMENT_ID ?? null,
     startedAt,
   },
-  ...(apiToken ? { apiToken } : {}),
+  ...(runtime.apiToken ? { apiToken: runtime.apiToken } : {}),
   ...(upstageProvider
     ? {
         extractionProvider: upstageProvider,
@@ -121,5 +123,29 @@ const app = await buildApp({
         scriptProjectionProvider: upstageProvider,
       }
     : {}),
-});
-await app.listen({ host: "0.0.0.0", port });
+}, store);
+await app.listen({ host: "0.0.0.0", port: runtime.port });
+
+let shutdown: Promise<void> | undefined;
+for (const signal of ["SIGTERM", "SIGINT"] as const) {
+  process.on(signal, () => {
+    shutdown ??= (async () => {
+      draining = true;
+      const forcedExit = setTimeout(() => process.exit(1), runtime.shutdownGraceMs + 1_000);
+      forcedExit.unref();
+      try {
+        const deadline = Date.now() + runtime.shutdownGraceMs;
+        // Drain already admitted HTTP requests first: an upload may enqueue a
+        // background operation immediately before returning its 202 response.
+        await app.close();
+        const finished = await store.waitForIdle(Math.max(0, deadline - Date.now()));
+        if (!finished) app.log.warn({ pendingOperations: store.pendingOperationCount() }, "Shutdown grace elapsed; unfinished in-memory operations cannot survive restart");
+        clearTimeout(forcedExit);
+        process.exit(finished ? 0 : 1);
+      } catch (error) {
+        app.log.error({ err: error }, "Backend shutdown failed");
+        process.exit(1);
+      }
+    })();
+  });
+}

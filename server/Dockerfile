@@ -1,16 +1,25 @@
-FROM node:22.22.0-alpine AS build
+# syntax=docker/dockerfile:1
+FROM node:24-alpine AS build
 WORKDIR /app
 COPY server/package.json server/package-lock.json ./
-RUN npm ci
+RUN --mount=type=secret,id=proxy_ca,required=false \
+    if [ -f /run/secrets/proxy_ca ]; then export NODE_EXTRA_CA_CERTS=/run/secrets/proxy_ca; fi; \
+    npm ci --ignore-scripts
 COPY server/tsconfig.json server/tsconfig.build.json ./
 COPY server/src ./src
 RUN npm run build
 
-FROM node:22.22.0-alpine AS runtime
+FROM node:24-alpine AS runtime
+ARG GIT_COMMIT_SHA=unknown
 ENV NODE_ENV=production
+ENV GIT_COMMIT_SHA=$GIT_COMMIT_SHA
 WORKDIR /app
 COPY server/package.json server/package-lock.json ./
-RUN npm ci --omit=dev && npm cache clean --force
+RUN --mount=type=secret,id=proxy_ca,required=false \
+    if [ -f /run/secrets/proxy_ca ]; then export NODE_EXTRA_CA_CERTS=/run/secrets/proxy_ca; fi; \
+    npm ci --omit=dev --ignore-scripts && npm cache clean --force
 COPY --from=build /app/dist ./dist
 USER node
-CMD ["npm", "start"]
+EXPOSE 8787
+STOPSIGNAL SIGTERM
+CMD ["node", "dist/index.js"]

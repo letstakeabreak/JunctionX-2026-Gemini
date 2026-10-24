@@ -26,6 +26,7 @@ import type { ProductionAgentProvider } from "./providers/production-agent-provi
 import type { ScriptProjectionProvider } from "./providers/script-projection-provider.js";
 import { InMemoryStore } from "./store/in-memory-store.js";
 import { verifyJwtToken, type AuthContext, type WorkspaceRole } from "./auth/jwt.js";
+import { configuredOrigins } from "./runtime-config.js";
 
 declare module "fastify" {
   interface FastifyRequest {
@@ -37,9 +38,13 @@ declare module "fastify" {
 export type ServerConfig = {
   apiToken?: string;
   jwtSecret?: string;
+  jwtIssuer?: string;
+  jwtAudience?: string;
   allowAnonymous?: boolean;
   allowedOrigins: string[];
   logger?: boolean;
+  trustProxy?: number | false;
+  isDraining?: () => boolean;
   extractionProvider?: ExtractionProvider;
   productionAgentProvider?: ProductionAgentProvider;
   scriptProjectionProvider?: ScriptProjectionProvider;
@@ -106,8 +111,14 @@ export async function buildApp(
     config.scriptProjectionProvider ?? null,
   ),
 ) {
+  const allowedOrigins = configuredOrigins(config.allowedOrigins, process.env.NODE_ENV === "production");
+  const trustedProxyHops = typeof config.trustProxy === "number" ? config.trustProxy : 0;
   const app = Fastify({
-    logger: config.logger ?? false,
+    logger: config.logger ? {
+      redact: ["req.headers.authorization", "req.headers.cookie", 'req.headers["x-standby-session"]'],
+    } : false,
+    bodyLimit: 1_048_576,
+    trustProxy: trustedProxyHops > 0 ? (_address, hop) => hop < trustedProxyHops : false,
   });
 
   await app.register(helmet, {
@@ -119,12 +130,7 @@ export async function buildApp(
         callback(null, true);
         return;
       }
-      if (
-        config.allowedOrigins.includes("*") ||
-        config.allowedOrigins.includes(origin) ||
-        origin.endsWith(".vercel.app") ||
-        origin.startsWith("http://localhost:")
-      ) {
+      if (allowedOrigins.includes(origin)) {
         callback(null, true);
         return;
       }
@@ -149,7 +155,10 @@ export async function buildApp(
   app.decorateRequest("standbyActorId", "");
   app.decorateRequest("standbyAuthContext", null as unknown as AuthContext);
   app.addHook("onRequest", async (request) => {
-    if (request.url === "/healthz") return;
+    if (config.isDraining?.() && !["GET", "HEAD", "OPTIONS"].includes(request.method)) {
+      throw new DomainError(503, "SERVER_DRAINING", "The backend is shutting down. Retry on the healthy deployment.");
+    }
+    if (request.url === "/healthz" || request.url === "/readyz") return;
     if (!request.url.startsWith("/v1/")) return;
     const authorization = request.headers.authorization;
     const token = authorization?.startsWith("Bearer ") ? authorization.slice(7).trim() : "";
@@ -164,7 +173,10 @@ export async function buildApp(
         };
         return;
       }
-      const principal = verifyJwtToken(token, config.jwtSecret);
+      const principal = verifyJwtToken(token, config.jwtSecret, {
+        ...(config.jwtIssuer ? { issuer: config.jwtIssuer } : {}),
+        ...(config.jwtAudience ? { audience: config.jwtAudience } : {}),
+      });
       request.standbyActorId = principal.sub;
       request.standbyAuthContext = {
         actorId: principal.sub,
@@ -259,6 +271,14 @@ export async function buildApp(
     deployment_id: config.deployment?.deploymentId ?? null,
     started_at: config.deployment?.startedAt ?? null,
   }));
+
+  app.get("/readyz", async (_request, reply) => {
+    const ready = !config.isDraining?.();
+    return reply.header("Cache-Control", "no-store").status(ready ? 200 : 503).send({
+      status: ready ? "ready" : "draining",
+      commit: config.deployment?.commitSha ?? null,
+    });
+  });
 
   app.post(
     "/v1/script-projections",
@@ -379,6 +399,9 @@ export async function buildApp(
       typeof body.workspace_id === "string" && body.workspace_id.trim().length > 0
         ? body.workspace_id.trim()
         : request.standbyAuthContext.workspaceId;
+    if (workspaceId && request.standbyAuthContext.mode === "DEMO") {
+      throw new DomainError(403, "PERMISSION_DENIED", "Anonymous demo sessions cannot join workspaces.");
+    }
     const response = store.withIdempotency(
       `${request.standbyActorId}:POST:/v1/cases`,
       idempotencyKey(request),
