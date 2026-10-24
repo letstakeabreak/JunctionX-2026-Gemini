@@ -14,11 +14,12 @@ ARG GIT_COMMIT_SHA=unknown
 ENV NODE_ENV=production
 ENV GIT_COMMIT_SHA=$GIT_COMMIT_SHA
 WORKDIR /app
-COPY server/package.json server/package-lock.json ./
+COPY --chown=node:node server/package.json server/package-lock.json ./
 RUN --mount=type=secret,id=proxy_ca,required=false \
+    umask 022; \
     if [ -f /run/secrets/proxy_ca ]; then export NODE_EXTRA_CA_CERTS=/run/secrets/proxy_ca; fi; \
     npm ci --omit=dev --ignore-scripts && npm cache clean --force
-COPY --from=build /app/dist ./dist
+COPY --chown=node:node --from=build /app/dist ./dist
 USER node
 EXPOSE 8787
 STOPSIGNAL SIGTERM
