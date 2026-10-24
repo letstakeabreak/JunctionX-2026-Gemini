@@ -1,0 +1,44 @@
+# Proposed name. Every deployment command must also pass the intended --app.
+app = "standby-api-miro"
+primary_region = "nrt"
+kill_signal = "SIGTERM"
+kill_timeout = "300s"
+
+[build]
+  dockerfile = "server/Dockerfile"
+
+[env]
+  NODE_ENV = "production"
+  PORT = "8787"
+  STANDBY_ALLOW_ANONYMOUS = "true"
+  STANDBY_SHUTDOWN_GRACE_MS = "295000"
+  STANDBY_ALLOWED_ORIGINS = "https://standby-junctionx.vercel.app,https://standby-rho.vercel.app,https://standby-3-7.vercel.app,https://standby-demo-junctionx.vercel.app"
+  UPSTAGE_POLL_INTERVAL_MS = "2000"
+  UPSTAGE_TIMEOUT_MS = "600000"
+
+[http_service]
+  internal_port = 8787
+  force_https = true
+  auto_stop_machines = "off"
+  auto_start_machines = true
+  min_machines_running = 1
+
+  [http_service.concurrency]
+    type = "requests"
+    soft_limit = 2
+    hard_limit = 4
+
+  [[http_service.checks]]
+    grace_period = "20s"
+    interval = "30s"
+    method = "GET"
+    timeout = "5s"
+    path = "/readyz"
+
+[[vm]]
+  cpu_kind = "shared"
+  cpus = 1
+  memory = "1gb"
+
+# This app keeps case state in one process. Deploy with --ha=false and one
+# Machine. Do not add replicas or claim a mounted volume persists its Maps.
