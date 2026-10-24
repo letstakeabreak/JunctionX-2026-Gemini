@@ -49,7 +49,7 @@ fly auth whoami
 fly apps create "$STANDBY_FLY_APP" --org YOUR_CONFIRMED_ORG
 # Import a protected local file containing UPSTAGE_API_KEY and any required
 # server-only overrides; do not echo its contents.
-fly secrets import --app "$STANDBY_FLY_APP" < /path/to/protected-backend-secrets
+fly secrets import --stage --app "$STANDBY_FLY_APP" < /path/to/protected-backend-secrets
 fly config validate --app "$STANDBY_FLY_APP" --config deploy/fly.toml
 fly deploy --app "$STANDBY_FLY_APP" --config deploy/fly.toml --ha=false \
   --strategy immediate --remote-only --wait-timeout 10m \
@@ -63,6 +63,13 @@ route polling requests to a process that does not own the case. Production
 startup rejects missing provider credentials and invalid origins. `/healthz`
 is liveness and build identity; `/readyz` reports whether the instance accepts
 new work. Neither endpoint proves that the external provider accepts its key.
+
+The Fly deployment opts into its `Fly-Client-IP` header for the rate-limit key,
+validating that it contains a single IP address and otherwise falling back to
+the socket address. This mode requires Fly's injected application identity and
+public ingress through `http_service`; do not expose the raw API port outside
+that proxy or trust arbitrary `X-Forwarded-For` values. Verify distinct actual
+clients after deployment before claiming observed per-client throttling.
 
 ## Gate frontend cutover on observed behavior
 
